@@ -7,11 +7,11 @@ Morphic-OS is a "Self-Synthesizing AI Operating System" built on SOLID principle
 - **Domain Layer:** The core. Contains enterprise-wide logic, entities (e.g., `Tool`, `SystemCall`), and interface definitions. No external dependencies.
 - **UseCase Layer:** Contains application-specific business rules. Orchestrates the Morphic Loop, handles capability gaps, and manages the self-correction retry logic.
 - **Interface/Adapter Layer:** Adapts data from UseCases to external agencies like HTTP routers (REST/gRPC) and the CLI.
-- **Infrastructure Layer:** Frameworks, databases, and external APIs. Includes SQLite registry interactions, Docker Engine API orchestration, and LLM API clients (Ollama, OpenAI, etc.).
+- **Infrastructure Layer:** Frameworks, databases, and external APIs. Includes SQLite registry interactions, WebAssembly (Wazero) sandboxing, and LLM API clients (Ollama, OpenAI, etc.).
 
 ## 3. Go Idiomatic Patterns
 - **Error Handling:** Use `fmt.Errorf("...: %w", err)` for wrapping errors to preserve stack context. Create custom error types for domain-specific failures (e.g., `ErrCompilationFailed`, `ErrSandboxTimeout`).
-- **Context Propagation:** All external calls (DB, Docker, LLM, HTTP) must accept a `context.Context` to ensure proper cancellation and timeout enforcement.
+- **Context Propagation:** All external calls (DB, Sandbox, LLM, HTTP) must accept a `context.Context` to ensure proper cancellation and timeout enforcement.
 - **Interface Segregation:** Define small, focused interfaces where they are *used*, not where they are implemented.
 - **Concurrency:** Leverage Go routines for parallel test execution or background registry updates, managed strictly with `sync.WaitGroup` and channels.
 
@@ -48,7 +48,7 @@ morphic-os/
 │   │   ├── domain/          # Entities and core interfaces
 │   │   ├── usecase/         # Morphic loop and business logic
 │   │   ├── interface/       # HTTP handlers, CLI routers
-│   │   └── infrastructure/  # SQLite, Docker SDK, LLM clients
+│   │   └── infrastructure/  # SQLite, Wazero SDK, LLM clients
 │   ├── pkg/                 # Reusable utility functions
 │   ├── go.mod
 │   └── go.sum
@@ -60,5 +60,5 @@ morphic-os/
 │   ├── package.json
 │   └── next.config.js       # Or vite.config.js for Vue.js
 ├── scripts/                 # Build and deployment scripts
-└── docker/                  # Dockerfiles for base runtimes (Go, Python)
+└── wasm/                    # Base WebAssembly configurations
 ```

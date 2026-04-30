@@ -9,13 +9,12 @@
 - **Interface:** Set up a simple HTTP router (e.g., using Gin or standard net/http) to receive tasks.
 
 ## Phase 2: The Sandbox
-**Objective:** Integrate Docker Engine SDK to securely execute dynamically generated code.
-- **Infrastructure:** Create a Docker orchestrator (`infrastructure/docker/sandbox.go`) that can spin up ephemeral containers.
+**Objective:** Integrate `wazero` to securely execute dynamically generated WebAssembly code.
+- **Infrastructure:** Create a WASM orchestrator (`infrastructure/wasm/sandbox.go`) that can instantiate and execute WebAssembly modules using `github.com/tetratelabs/wazero`.
 - **Features:**
-  - Write source code and tests to a temporary volume/directory.
-  - Execute code with strict CPU/RAM limits and timeouts.
+  - Compile generated Go code to WebAssembly (`GOOS=wasip1 GOARCH=wasm go build`).
+  - Execute the compiled WASM module in an isolated Wazero runtime with strict memory limits and timeouts.
   - Capture `stdout` and `stderr` to return to the UseCase layer.
-  - Support Go and Python runtimes.
 
 ## Phase 3: The Agentic Loop
 **Objective:** Implement the core "Morphic Loop" execution flow.
