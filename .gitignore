@@ -30,3 +30,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+# Binaries
+backend/main
+backend/testdata/hello/main
+**/*.wasm
+!backend/testdata/hello/hello.wasm
