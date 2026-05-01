@@ -36,3 +36,4 @@ backend/testdata/hello/main
 **/*.wasm
 !backend/testdata/hello/hello.wasm
 backend/server
+morphic-os.db

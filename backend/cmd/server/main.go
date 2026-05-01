@@ -37,11 +37,16 @@ func main() {
 	// 3. Initialize LLM Agent
 	agent := llm.NewMockAgent()
 
+	// Initialize Broadcaster
+	broadcaster := morphichttp.NewBroadcaster()
+	// Start broadcaster in background (not strictly necessary but good practice if needed)
+
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, agent, sandbox)
+	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo)
+	handler := morphichttp.NewHandler(morphicLoop, toolRepo, broadcaster)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server

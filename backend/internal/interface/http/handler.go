@@ -11,14 +11,25 @@ import (
 type Handler struct {
 	morphicLoop *usecase.MorphicLoop
 	toolRepo    domain.ToolRepository
+	broadcaster *Broadcaster
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository) *Handler {
+func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, broadcaster *Broadcaster) *Handler {
 	return &Handler{
 		morphicLoop: morphicLoop,
 		toolRepo:    toolRepo,
+		broadcaster: broadcaster,
 	}
+}
+
+// HandleLogs handles Server-Sent Events for real-time logs.
+func (h *Handler) HandleLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.broadcaster.HandleSSE(w, r)
 }
 
 // HandleTask processes a user task.
