@@ -4,12 +4,14 @@ import (
 	"net/http"
 )
 
-// SetupRouter configures the HTTP routes.
-func SetupRouter(handler *Handler) *http.ServeMux {
+// SetupRouter configures the HTTP routes and applies middleware.
+func SetupRouter(handler *Handler) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/task", handler.HandleTask)
 	mux.HandleFunc("/api/tools", handler.HandleGetTools)
+	mux.HandleFunc("/api/logs", handler.HandleLogs)
 
-	return mux
+	// Wrap the mux with the CORS middleware
+	return CORSMiddleware(mux)
 }

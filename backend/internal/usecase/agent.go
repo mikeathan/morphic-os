@@ -30,9 +30,10 @@ type AgentResponse struct {
 
 // MorphicLoop orchestrates the execution flow.
 type MorphicLoop struct {
-	toolRepo domain.ToolRepository
-	agent    Agent
-	sandbox  domain.SandboxManager
+	toolRepo     domain.ToolRepository
+	agent        Agent
+	sandbox      domain.SandboxManager
+	broadcastLog func(msg string)
 }
 
 // NewMorphicLoop creates a new MorphicLoop instance.
@@ -44,13 +45,36 @@ func NewMorphicLoop(toolRepo domain.ToolRepository, agent Agent, sandbox domain.
 	}
 }
 
+// SetLogBroadcaster sets the function to call when a log event occurs.
+func (l *MorphicLoop) SetLogBroadcaster(b func(msg string)) {
+	l.broadcastLog = b
+}
+
+func (l *MorphicLoop) logEvent(level, message string) {
+	if l.broadcastLog != nil {
+		event := map[string]string{
+			"type":    "log",
+			"level":   level,
+			"message": message,
+		}
+		bytes, err := json.Marshal(event)
+		if err == nil {
+			l.broadcastLog(string(bytes))
+		}
+	}
+}
+
 // Execute handles a single user task.
 func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) {
+	l.logEvent("INFO", fmt.Sprintf("Received task: %q", task))
+
 	// 1. Context Assembly: Query SQLite for active tools
+	l.logEvent("EVAL", "Assembling context...")
 	activeTools, err := l.toolRepo.ListActive(ctx)
 	if err != nil {
 		return "", err
 	}
+	l.logEvent("EVAL", fmt.Sprintf("Found %d active tools.", len(activeTools)))
 
 	// 2. Evaluation: Ask LLM what to do
 	// The LLM prompt and schema formatting logic will reside in the Agent implementation.
@@ -63,6 +87,8 @@ func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) 
 	if err := json.Unmarshal([]byte(responseStr), &response); err != nil {
 		return "", fmt.Errorf("failed to parse agent response: %w", err)
 	}
+
+	l.logEvent("EVAL", fmt.Sprintf("Agent decided action: %s", response.Action))
 
 	// 3. Execution based on action
 	switch response.Action {
@@ -78,6 +104,7 @@ func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) 
 }
 
 func (l *MorphicLoop) executeTool(ctx context.Context, response AgentResponse) (string, error) {
+	l.logEvent("EXEC", fmt.Sprintf("Executing tool %s", response.ToolName))
 	tool, err := l.toolRepo.GetByName(ctx, response.ToolName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get tool %s from repository: %w", response.ToolName, err)
@@ -109,19 +136,23 @@ func (l *MorphicLoop) executeTool(ctx context.Context, response AgentResponse) (
 }
 
 func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response AgentResponse, activeTools []*domain.Tool) (string, error) {
+	l.logEvent("FORGE", fmt.Sprintf("Forging tool %s", response.ToolName))
 	sourceCode := response.SourceCode
 	var compiledWasm []byte
 	var err error
 	maxRetries := 3
 
 	for i := 0; i < maxRetries; i++ {
+		l.logEvent("FORGE", fmt.Sprintf("Compiling tool to WebAssembly (Attempt %d)", i+1))
 		compiledWasm, err = l.sandbox.CompileGoToWASM(ctx, sourceCode)
 		if err == nil {
+			l.logEvent("SUCCESS", "Compilation succeeded")
 			break // Compilation succeeded
 		}
 
 		// Compilation failed, ask LLM to self-correct
 		errorMessage := err.Error()
+		l.logEvent("ERROR", fmt.Sprintf("Compilation failed: %v", errorMessage))
 		fixedResponseStr, fixErr := l.agent.FixTool(ctx, task, sourceCode, errorMessage)
 		if fixErr != nil {
 			return "", fmt.Errorf("failed to ask agent to fix tool: %w", fixErr)
@@ -139,6 +170,7 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 	}
 
 	// Compilation succeeded, save the tool
+	l.logEvent("INFO", fmt.Sprintf("Saving tool %s to registry", response.ToolName))
 	newTool := &domain.Tool{
 		ID:          response.ToolName, // Simplified ID assignment, maybe better to use uuid
 		Name:        response.ToolName,
