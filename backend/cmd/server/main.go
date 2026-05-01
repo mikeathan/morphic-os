@@ -51,10 +51,6 @@ func main() {
 	broadcaster := morphichttp.NewBroadcaster()
 	// Start broadcaster in background (not strictly necessary but good practice if needed)
 
-	// Initialize Broadcaster
-	broadcaster := morphichttp.NewBroadcaster()
-	// Start broadcaster in background (not strictly necessary but good practice if needed)
-
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)

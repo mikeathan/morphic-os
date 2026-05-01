@@ -74,11 +74,21 @@ func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	l.logEvent("EVAL", fmt.Sprintf("Found %d active tools.", len(activeTools)))
+
+	// Implement Context Management: limit tools to prevent exceeding LLM context window.
+	const maxTools = 10
+	var contextTools []*domain.Tool
+	if len(activeTools) > maxTools {
+		contextTools = activeTools[:maxTools]
+		l.logEvent("EVAL", fmt.Sprintf("Found %d active tools. Limiting context to %d tools.", len(activeTools), maxTools))
+	} else {
+		contextTools = activeTools
+		l.logEvent("EVAL", fmt.Sprintf("Found %d active tools.", len(activeTools)))
+	}
 
 	// 2. Evaluation: Ask LLM what to do
 	// The LLM prompt and schema formatting logic will reside in the Agent implementation.
-	responseStr, err := l.agent.EvaluateTask(ctx, task, activeTools)
+	responseStr, err := l.agent.EvaluateTask(ctx, task, contextTools)
 	if err != nil {
 		return "", err
 	}
