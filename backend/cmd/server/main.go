@@ -35,7 +35,21 @@ func main() {
 	}()
 
 	// 3. Initialize LLM Agent
-	agent := llm.NewMockAgent()
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	apiBaseURL := os.Getenv("OPENAI_API_BASE")
+	apiModel := os.Getenv("OPENAI_MODEL")
+
+	var agent usecase.Agent
+	if apiKey == "" && apiBaseURL == "" {
+		log.Println("WARNING: OPENAI_API_KEY and OPENAI_API_BASE not set, falling back to MockAgent.")
+		agent = llm.NewMockAgent()
+	} else {
+		agent = llm.NewOpenAIAgent(apiKey, apiBaseURL, apiModel)
+	}
+
+	// Initialize Broadcaster
+	broadcaster := morphichttp.NewBroadcaster()
+	// Start broadcaster in background (not strictly necessary but good practice if needed)
 
 	// Initialize Broadcaster
 	broadcaster := morphichttp.NewBroadcaster()
