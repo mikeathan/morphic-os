@@ -83,9 +83,16 @@ func (l *MorphicLoop) executeTool(ctx context.Context, response AgentResponse) (
 		return "", fmt.Errorf("failed to get tool %s from repository: %w", response.ToolName, err)
 	}
 
-	compiledWasm, err := l.sandbox.CompileGoToWASM(ctx, tool.SourceCode)
-	if err != nil {
-		return "", fmt.Errorf("failed to compile tool %s: %w", tool.Name, err)
+	compiledWasm := tool.WasmBinary
+	if len(compiledWasm) == 0 {
+		// Fallback: compile if we don't have the binary cached
+		compiledWasm, err = l.sandbox.CompileGoToWASM(ctx, tool.SourceCode)
+		if err != nil {
+			return "", fmt.Errorf("failed to compile tool %s: %w", tool.Name, err)
+		}
+		// Save compiled binary back to db if needed
+		tool.WasmBinary = compiledWasm
+		_ = l.toolRepo.Update(ctx, tool)
 	}
 
 	execResult, err := l.sandbox.ExecuteWASM(ctx, compiledWasm, response.Arguments...)
@@ -130,7 +137,6 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 	if err != nil {
 		return "", fmt.Errorf("failed to compile tool after %d retries: %w", maxRetries, err)
 	}
-	_ = compiledWasm // Keep compiler happy for now, won't need to save compiled file yet
 
 	// Compilation succeeded, save the tool
 	newTool := &domain.Tool{
@@ -140,6 +146,7 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 		JSONSchema:  response.JSONSchema,
 		Language:    "go",
 		SourceCode:  sourceCode,
+		WasmBinary:  compiledWasm,
 		Active:      true,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),

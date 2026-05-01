@@ -13,6 +13,7 @@ type Tool struct {
 	JSONSchema  string    `json:"json_schema"` // Stored as a JSON string
 	Language    string    `json:"language"`
 	SourceCode  string    `json:"source_code"`
+	WasmBinary  []byte    `json:"wasm_binary"` // Compiled WebAssembly binary
 	ExecStats   int       `json:"exec_stats"`
 	Active      bool      `json:"active"`
 	CreatedAt   time.Time `json:"created_at"`
