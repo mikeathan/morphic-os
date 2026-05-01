@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/infrastructure/db"
 	"morphic-os/backend/internal/infrastructure/llm"
 	"morphic-os/backend/internal/infrastructure/wasm"
@@ -16,12 +17,18 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// 1. Initialize Database
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "morphic-os.db"
+	// 0. Load Configuration
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.json"
 	}
-	toolRepo, err := db.NewSQLiteToolRepository(dbPath)
+	cfg, err := domain.LoadConfig(configPath)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// 1. Initialize Database
+	toolRepo, err := db.NewSQLiteToolRepository(cfg.DBPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -34,22 +41,15 @@ func main() {
 		}
 	}()
 
-	// 3. Initialize LLM Agent
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	apiBaseURL := os.Getenv("OPENAI_API_BASE")
-	apiModel := os.Getenv("OPENAI_MODEL")
-
-	var agent usecase.Agent
-	if apiKey == "" && apiBaseURL == "" {
-		log.Println("WARNING: OPENAI_API_KEY and OPENAI_API_BASE not set, falling back to MockAgent.")
+	// 3. Initialize LLM Agent Factory (Abstracted for future expansion)
+	agent, err := llm.NewAgentFactory(cfg.Active, cfg.LLM[cfg.Active])
+	if err != nil {
+		log.Printf("Failed to initialize specified agent '%s': %v. Falling back to MockAgent.", cfg.Active, err)
 		agent = llm.NewMockAgent()
-	} else {
-		agent = llm.NewOpenAIAgent(apiKey, apiBaseURL, apiModel)
 	}
 
 	// Initialize Broadcaster
 	broadcaster := morphichttp.NewBroadcaster()
-	// Start broadcaster in background (not strictly necessary but good practice if needed)
 
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, agent, sandbox)
@@ -60,13 +60,8 @@ func main() {
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Starting Morphic-OS server on :%s", port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
+	log.Printf("Starting Morphic-OS server on :%s using %s agent", cfg.Port, cfg.Active)
+	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

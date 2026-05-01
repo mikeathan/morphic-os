@@ -11,3 +11,11 @@ export interface LogEvent {
   level: string;
   message: string;
 }
+
+export interface TaskResponse {
+  id: string;
+  task: string;
+  result: string | null;
+  logs: LogEvent[];
+  timestamp: number;
+}

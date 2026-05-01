@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"morphic-os/backend/internal/domain"
 	"time"
+
+	"github.com/google/uuid"
+	"morphic-os/backend/internal/domain"
 )
 
 // Agent defines the interface for interacting with an LLM.
@@ -107,13 +109,13 @@ func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) 
 	case "sys_forge_tool":
 		return l.forgeTool(ctx, task, response, activeTools)
 	case "tool_call":
-		return l.executeTool(ctx, response)
+		return l.executeTool(ctx, task, response)
 	default:
 		return "", fmt.Errorf("unknown action type: %s", response.Action)
 	}
 }
 
-func (l *MorphicLoop) executeTool(ctx context.Context, response AgentResponse) (string, error) {
+func (l *MorphicLoop) executeTool(ctx context.Context, task string, response AgentResponse) (string, error) {
 	l.logEvent("EXEC", fmt.Sprintf("Executing tool %s", response.ToolName))
 	tool, err := l.toolRepo.GetByName(ctx, response.ToolName)
 	if err != nil {
@@ -133,13 +135,48 @@ func (l *MorphicLoop) executeTool(ctx context.Context, response AgentResponse) (
 	}
 
 	execResult, err := l.sandbox.ExecuteWASM(ctx, compiledWasm, response.Arguments...)
-	if err != nil {
-		return "", fmt.Errorf("tool execution failed: %w", err)
+
+	// Check for execution errors or significant stderr indicating a failure
+	if err != nil || execResult.Stderr != "" {
+		errorMsg := ""
+		if err != nil {
+			errorMsg = err.Error()
+		} else {
+			errorMsg = fmt.Sprintf("tool executed but wrote to stderr: %s", execResult.Stderr)
+		}
+
+		l.logEvent("ERROR", fmt.Sprintf("Execution of tool %s failed: %v. Attempting self-correction.", tool.Name, errorMsg))
+
+		// Attempt self-correction by asking the LLM to fix the execution issue
+		fixedResponseStr, fixErr := l.agent.FixTool(ctx, task, tool.SourceCode, errorMsg)
+		if fixErr != nil {
+			return "", fmt.Errorf("tool execution failed and self-correction failed: %w", fixErr)
+		}
+
+		var fixedResponse AgentResponse
+		if unmarshalErr := json.Unmarshal([]byte(fixedResponseStr), &fixedResponse); unmarshalErr != nil {
+			return "", fmt.Errorf("failed to parse fixed agent response during execution correction: %w", unmarshalErr)
+		}
+
+		if fixedResponse.Description == "" {
+			fixedResponse.Description = tool.Description
+		}
+		if fixedResponse.JSONSchema == "" {
+			fixedResponse.JSONSchema = tool.JSONSchema
+		}
+		fixedResponse.ToolName = tool.Name
+
+		tool.Active = false
+		_ = l.toolRepo.Update(ctx, tool)
+
+		return l.forgeTool(ctx, task, fixedResponse, nil)
 	}
 
-	if execResult.Stderr != "" {
-		// Log warning or pass back
-		fmt.Printf("Tool stderr: %s\n", execResult.Stderr)
+	// Increment ExecStats and save
+	tool.ExecStats++
+	tool.UpdatedAt = time.Now()
+	if updateErr := l.toolRepo.Update(ctx, tool); updateErr != nil {
+		l.logEvent("ERROR", fmt.Sprintf("Failed to update execution stats for tool %s: %v", tool.Name, updateErr))
 	}
 
 	return execResult.Stdout, nil
@@ -182,7 +219,7 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 	// Compilation succeeded, save the tool
 	l.logEvent("INFO", fmt.Sprintf("Saving tool %s to registry", response.ToolName))
 	newTool := &domain.Tool{
-		ID:          response.ToolName, // Simplified ID assignment, maybe better to use uuid
+		ID:          uuid.New().String(),
 		Name:        response.ToolName,
 		Description: response.Description,
 		JSONSchema:  response.JSONSchema,
