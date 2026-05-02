@@ -13,13 +13,12 @@ func NewAgentFactory(provider string, cfg domain.ProviderConfig) (usecase.Agent,
 	}
 
 	switch provider {
-	case "openai", "openrouter", "mule", "nvidia":
-		// OpenRouter, Mule, and Nvidia API structures are often OpenAI compatible.
-		// For now, we will reuse the OpenAIAgent structure for all of them
-		// provided the correct base URL is passed in.
-		return NewOpenAIAgent(cfg.APIKey, cfg.BaseURL, cfg.Model), nil
-	case "gemini":
-		return NewGeminiAgent(cfg.APIKey, cfg.Model), nil
+	case "openai", "openrouter", "mule", "nvidia", "gemini":
+		// OpenRouter, Mule, Nvidia, and Gemini (via compatibility layer) API structures are OpenAI compatible.
+		// We use the CloudProviderAgent for all of them provided the correct base URL is passed in.
+		// For Gemini specifically, it requires the base URL pointing to the OpenAI compat endpoint, e.g.,
+		// https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+		return NewCloudProviderAgent(cfg.APIKey, cfg.BaseURL, cfg.Model), nil
 	case "mock":
 		return NewMockAgent(), nil
 	default:
