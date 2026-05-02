@@ -14,15 +14,17 @@ type Handler struct {
 	morphicLoop   *usecase.MorphicLoop
 	toolRepo      domain.ToolRepository
 	workspaceRepo domain.WorkspaceRepository
+	vfsRepo       domain.VirtualFileRepository
 	broadcaster   *Broadcaster
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, broadcaster *Broadcaster) *Handler {
+func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, broadcaster *Broadcaster) *Handler {
 	return &Handler{
 		morphicLoop:   morphicLoop,
 		toolRepo:      toolRepo,
 		workspaceRepo: workspaceRepo,
+		vfsRepo:       vfsRepo,
 		broadcaster:   broadcaster,
 	}
 }
@@ -156,4 +158,66 @@ func (h *Handler) HandleGetWorkspaces(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(workspaces)
+}
+
+// HandleListFiles returns a list of virtual files for a workspace.
+func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	workspaceID := r.URL.Query().Get("workspace_id")
+	if workspaceID == "" {
+		workspaceID = "default"
+	}
+
+	if h.vfsRepo == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]domain.VirtualFile{})
+		return
+	}
+
+	files, err := h.vfsRepo.ListByWorkspace(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Exclude content for listing to save bandwidth
+	for i := range files {
+		files[i].Content = nil
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(files)
+}
+
+// HandleGetFile returns a single virtual file including its content.
+func (h *Handler) HandleGetFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Simple path parsing since we are not using an advanced router yet
+	id := r.URL.Path[len("/api/vfs/files/"):]
+	if id == "" {
+		http.Error(w, "File ID is required", http.StatusBadRequest)
+		return
+	}
+
+	if h.vfsRepo == nil {
+		http.Error(w, "VFS not configured", http.StatusInternalServerError)
+		return
+	}
+
+	file, err := h.vfsRepo.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(file)
 }

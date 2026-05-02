@@ -53,12 +53,14 @@ func main() {
 	// Initialize Broadcaster
 	broadcaster := morphichttp.NewBroadcaster()
 
+	vfsRepo := db.NewSQLiteVirtualFileRepository(toolRepo.GetDB())
+
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, broadcaster)
+	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, broadcaster)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server
