@@ -33,6 +33,8 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	workspaceRepo := db.NewSQLiteWorkspaceRepository(toolRepo.GetDB())
+
 	// 2. Initialize Sandbox
 	sandbox := wasm.NewWazeroSandboxManager(ctx)
 	defer func() {
@@ -52,11 +54,11 @@ func main() {
 	broadcaster := morphichttp.NewBroadcaster()
 
 	// 4. Initialize UseCase (Morphic Loop)
-	morphicLoop := usecase.NewMorphicLoop(toolRepo, agent, sandbox)
+	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, broadcaster)
+	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, broadcaster)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server

@@ -14,6 +14,11 @@ type SQLiteToolRepository struct {
 	db *gorm.DB
 }
 
+// GetDB returns the underlying GORM database instance.
+func (r *SQLiteToolRepository) GetDB() *gorm.DB {
+	return r.db
+}
+
 // NewSQLiteToolRepository creates a new SQLite repository and runs migrations.
 func NewSQLiteToolRepository(dbPath string) (*SQLiteToolRepository, error) {
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
@@ -22,7 +27,7 @@ func NewSQLiteToolRepository(dbPath string) (*SQLiteToolRepository, error) {
 	}
 
 	// Auto-migrate the Tool schema
-	if err := db.AutoMigrate(&domain.Tool{}); err != nil {
+	if err := db.AutoMigrate(&domain.Workspace{}, &domain.Tool{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
@@ -51,10 +56,10 @@ func (r *SQLiteToolRepository) GetByID(ctx context.Context, id string) (*domain.
 	return &tool, nil
 }
 
-// GetByName retrieves a Tool by its Name.
-func (r *SQLiteToolRepository) GetByName(ctx context.Context, name string) (*domain.Tool, error) {
+// GetByName retrieves a Tool by its Name and WorkspaceID.
+func (r *SQLiteToolRepository) GetByName(ctx context.Context, workspaceID string, name string) (*domain.Tool, error) {
 	var tool domain.Tool
-	result := r.db.WithContext(ctx).First(&tool, "name = ?", name)
+	result := r.db.WithContext(ctx).First(&tool, "workspace_id = ? AND name = ?", workspaceID, name)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("tool not found")
@@ -64,10 +69,10 @@ func (r *SQLiteToolRepository) GetByName(ctx context.Context, name string) (*dom
 	return &tool, nil
 }
 
-// ListActive retrieves all tools where Active is true.
-func (r *SQLiteToolRepository) ListActive(ctx context.Context) ([]*domain.Tool, error) {
+// ListActive retrieves all tools where Active is true for a given workspace.
+func (r *SQLiteToolRepository) ListActive(ctx context.Context, workspaceID string) ([]*domain.Tool, error) {
 	var tools []*domain.Tool
-	result := r.db.WithContext(ctx).Where("active = ?", true).Find(&tools)
+	result := r.db.WithContext(ctx).Where("workspace_id = ? AND active = ?", workspaceID, true).Find(&tools)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to list active tools: %w", result.Error)
 	}

@@ -112,7 +112,7 @@ func (sm *WazeroSandboxManager) Close(ctx context.Context) error {
 }
 
 // ExecuteWASM runs the WebAssembly code.
-func (sm *WazeroSandboxManager) ExecuteWASM(ctx context.Context, wasmBytes []byte, args ...string) (*domain.ExecutionResult, error) {
+func (sm *WazeroSandboxManager) ExecuteWASM(ctx context.Context, sandboxConfig domain.SandboxConfig, wasmBytes []byte, args ...string) (*domain.ExecutionResult, error) {
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer
 
@@ -127,8 +127,25 @@ func (sm *WazeroSandboxManager) ExecuteWASM(ctx context.Context, wasmBytes []byt
 		WithStderr(&stderrBuf).
 		WithArgs(cmdArgs...)
 
+	// Apply environment variables
+	for k, v := range sandboxConfig.EnvVars {
+		config = config.WithEnv(k, v)
+	}
+
+	// Mount the workspace filesystem if provided
+	if sandboxConfig.WorkspaceFSDir != "" {
+		if err := os.MkdirAll(sandboxConfig.WorkspaceFSDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create workspace directory: %w", err)
+		}
+		config = config.WithFSConfig(wazero.NewFSConfig().WithDirMount(sandboxConfig.WorkspaceFSDir, "/"))
+	}
+
 	// Apply an execution timeout
-	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	timeout := 30 * time.Second
+	if sandboxConfig.TimeoutSeconds > 0 {
+		timeout = time.Duration(sandboxConfig.TimeoutSeconds) * time.Second
+	}
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Compile the module first, so we don't compile concurrently if we cache later.
