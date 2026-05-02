@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ToolRegistry } from './components/ToolRegistry';
+import { MorphicMap } from './components/MorphicMap';
 import { TaskSubmissionForm } from './components/TaskSubmissionForm';
 import { TaskDisplay } from './components/TaskDisplay';
 import { useMorphicLoop } from './hooks/useMorphicLoop';
@@ -30,6 +31,7 @@ export default function Home() {
         {/* Left Column: Tools */}
         <div className="lg:col-span-1">
           <ToolRegistry tools={tools} />
+          <MorphicMap tools={tools} />
         </div>
 
         {/* Right Column: Interaction & History */}
