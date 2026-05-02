@@ -1,1 +1,11 @@
-2026/05/01 19:45:50 Starting Morphic-OS server on :8080 using mock agent
+go: downloading gorm.io/driver/sqlite v1.6.0
+go: downloading gorm.io/gorm v1.31.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/tetratelabs/wazero v1.11.0
+go: downloading github.com/mattn/go-sqlite3 v1.14.22
+go: downloading github.com/jinzhu/now v1.1.5
+go: downloading github.com/jinzhu/inflection v1.0.0
+go: downloading golang.org/x/text v0.20.0
+go: downloading golang.org/x/sys v0.38.0
+2026/05/02 17:46:15 Starting Morphic-OS server on :8080 using mock agent
+signal: terminated
