@@ -1,78 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { VirtualFile } from '../types';
-import { fetchVirtualFiles, fetchVirtualFileContent } from '../services/api';
+import React from 'react';
+import { useVFSExplorer } from '../hooks/useVFSExplorer';
+import { FILE_ICONS } from '../utils/vfsUtils';
 
 export const VFSExplorer: React.FC = () => {
-  const [files, setFiles] = useState<VirtualFile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedFile, setSelectedFile] = useState<VirtualFile | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
-  const [contentLoading, setContentLoading] = useState(false);
-
-  const loadFiles = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchVirtualFiles();
-      setFiles(data);
-    } catch (err) {
-      console.error("Failed to load VFS files:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchInitialFiles = async () => {
-      try {
-        const data = await fetchVirtualFiles();
-        if (isMounted) {
-          setFiles(data);
-        }
-      } catch (err) {
-        console.error("Failed to load VFS files:", err);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchInitialFiles();
-    return () => { isMounted = false; };
-  }, []);
-
-  const handleFileClick = async (file: VirtualFile) => {
-    if (file.is_dir) return; // For now, we just display contents of files
-
-    setSelectedFile(file);
-    setContentLoading(true);
-    try {
-      const fullFile = await fetchVirtualFileContent(file.id);
-      // Content might be base64 encoded from Go depending on how it's sent.
-      // Assuming it's base64, we decode it. If it's a string, we just use it.
-      if (fullFile.content) {
-        try {
-          // Robust base64 decoding with TextDecoder for UTF-8 support
-          const binaryString = atob(fullFile.content);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-          }
-          const decoded = new TextDecoder('utf-8').decode(bytes);
-          setFileContent(decoded);
-        } catch {
-           setFileContent(fullFile.content); // If it's not base64, it might just be text
-        }
-      } else {
-        setFileContent("");
-      }
-    } catch (err) {
-      console.error("Failed to load file content:", err);
-      setFileContent("Error loading content.");
-    } finally {
-      setContentLoading(false);
-    }
-  };
+  const {
+    files,
+    loading,
+    selectedFile,
+    fileContent,
+    contentLoading,
+    loadFiles,
+    handleFileClick,
+  } = useVFSExplorer();
 
   return (
     <section className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 mt-6 flex flex-col h-[500px]">
@@ -99,7 +38,7 @@ export const VFSExplorer: React.FC = () => {
                     className={`flex items-center w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${selectedFile?.id === file.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                   >
                     <span className="mr-2 text-zinc-400">
-                      {file.is_dir ? '📁' : '📄'}
+                      {file.is_dir ? FILE_ICONS.dir : FILE_ICONS.file}
                     </span>
                     <span className="truncate">{file.path}</span>
                   </button>
