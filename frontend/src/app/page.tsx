@@ -5,6 +5,7 @@ import { ToolRegistry } from './components/ToolRegistry';
 import { MorphicMap } from './components/MorphicMap';
 import { VFSExplorer } from './components/VFSExplorer';
 import { Terminal } from './components/Terminal';
+import { HardwareMetrics } from './components/HardwareMetrics';
 import { TaskSubmissionForm } from './components/TaskSubmissionForm';
 import { TaskDisplay } from './components/TaskDisplay';
 import { useMorphicLoop } from './hooks/useMorphicLoop';
@@ -33,6 +34,7 @@ export default function Home() {
         {/* Left Column: Tools */}
         <div className="lg:col-span-1">
           <ToolRegistry tools={tools} />
+          <HardwareMetrics />
           <VFSExplorer />
           <MorphicMap tools={tools} />
           <Terminal />

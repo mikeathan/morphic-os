@@ -31,3 +31,12 @@ export interface VirtualFile {
   created_at: string;
   updated_at: string;
 }
+
+export interface MetricsData {
+  goroutines: number;
+  allocated_mem: number;
+  total_alloc: number;
+  sys_mem: number;
+  num_gc: number;
+  pruned_count: number;
+}

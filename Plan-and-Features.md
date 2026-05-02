@@ -49,5 +49,5 @@
   - **[Completed]** **The Morphic Map (React Flow):** Visualizer showing active tools, daemons, and pipes.
   - **[Completed]** **Terminal / stdout:** Live-streaming view.
   - **[Completed]** **VFS Explorer:** File-tree UI to browse `/var/logs` or `/home/agent`.
-  - **Hardware & Metrics:** Real-time displays of node utilization and pruning stats.
+  - **[Completed]** **Hardware & Metrics:** Real-time displays of node utilization and pruning stats.
   - **Secrets Manager:** Secure UI to input API keys.

@@ -5,6 +5,7 @@ import (
 	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/usecase"
 	"net/http"
+	"runtime"
 
 	"github.com/google/uuid"
 )
@@ -220,4 +221,34 @@ func (h *Handler) HandleGetFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(file)
+}
+
+// HandleGetMetrics returns system metrics.
+func (h *Handler) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	metrics := struct {
+		Goroutines   int    `json:"goroutines"`
+		AllocatedMem uint64 `json:"allocated_mem"`
+		TotalAlloc   uint64 `json:"total_alloc"`
+		SysMem       uint64 `json:"sys_mem"`
+		NumGC        uint32 `json:"num_gc"`
+		PrunedCount  int    `json:"pruned_count"` // Placeholder for pruning stats
+	}{
+		Goroutines:   runtime.NumGoroutine(),
+		AllocatedMem: m.Alloc,
+		TotalAlloc:   m.TotalAlloc,
+		SysMem:       m.Sys,
+		NumGC:        m.NumGC,
+		PrunedCount:  0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(metrics)
 }
