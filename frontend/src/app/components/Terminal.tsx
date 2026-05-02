@@ -13,8 +13,8 @@ export const Terminal: React.FC = () => {
   }, [logs]);
 
   return (
-    <section className="bg-zinc-950 rounded-xl shadow-sm border border-zinc-800 p-6 mt-6 flex flex-col h-[300px]">
-      <div className="flex items-center justify-between mb-4 border-b border-zinc-800 pb-2">
+    <section className="bg-black rounded-xl shadow-sm border border-border-default p-6 mt-6 flex flex-col h-[300px]">
+      <div className="flex items-center justify-between mb-4 border-b border-border-default pb-2">
         <h2 className="text-xl font-semibold text-zinc-100">Terminal</h2>
         <div className="flex gap-2">
            <div className="w-3 h-3 rounded-full bg-red-500"></div>

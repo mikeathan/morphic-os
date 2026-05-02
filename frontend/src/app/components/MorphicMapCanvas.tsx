@@ -20,7 +20,7 @@ export const MorphicMapCanvas: React.FC<MorphicMapCanvasProps> = ({ tools }) => 
   }, [initialNodes, setNodes]);
 
   return (
-    <div style={{ height: 400, width: '100%' }} className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
+    <div style={{ height: 400, width: '100%' }} className="border border-border-default rounded-lg overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}
