@@ -27,6 +27,9 @@ Instead of implementing complex Wasm memory bridge abstractions (e.g., memory al
 - Inputs to tools are passed as standard command-line arguments and read natively within the generated Wasm using `os.Args`.
 - Outputs and errors are natively captured via standard `stdout` and `stderr` streams by configuring the `wazero` sandbox environment `WithArgs`, `WithStdout`, and `WithStderr`.
 - Executing a `wasip1` binary that successfully exits will result in a `sys.ExitError` with exit code `0`, which the Sandbox correctly handles as a success state.
+- **Workspaces and Isolation:** The Sandbox environment isolates execution per Workspace. It mounts a specific host directory (`WithFS`) providing isolated file system access, and injects workspace-specific environment variables (`WithEnv`), e.g., for database connectivity or API keys.
+- **Configurable Timeouts:** Execution timeouts are configurable based on the workspace or tool complexity.
+- **Real-Time Streaming:** Tool execution standard output is captured and can be streamed in real-time, allowing long-running tasks to be observed.
 
 ## 5. LLM Tool Calling JSON Structure
 To standardize interactions, tools will use OpenAI's JSON schema format for function calling:

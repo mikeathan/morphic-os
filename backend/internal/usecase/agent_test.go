@@ -33,19 +33,19 @@ func (m *MockToolRepository) GetByID(ctx context.Context, id string) (*domain.To
 	return nil, errors.New("not found")
 }
 
-func (m *MockToolRepository) GetByName(ctx context.Context, name string) (*domain.Tool, error) {
+func (m *MockToolRepository) GetByName(ctx context.Context, workspaceID string, name string) (*domain.Tool, error) {
 	for _, t := range m.tools {
-		if t.Name == name {
+		if t.Name == name && t.WorkspaceID == workspaceID {
 			return t, nil
 		}
 	}
 	return nil, errors.New("not found")
 }
 
-func (m *MockToolRepository) ListActive(ctx context.Context) ([]*domain.Tool, error) {
+func (m *MockToolRepository) ListActive(ctx context.Context, workspaceID string) ([]*domain.Tool, error) {
 	var active []*domain.Tool
 	for _, t := range m.tools {
-		if t.Active {
+		if t.Active && t.WorkspaceID == workspaceID {
 			active = append(active, t)
 		}
 	}
@@ -83,7 +83,7 @@ func (m *MockSandboxManager) CompileToWASM(ctx context.Context, language string,
 	return []byte("fake-wasm-binary"), nil
 }
 
-func (m *MockSandboxManager) ExecuteWASM(ctx context.Context, wasmBytes []byte, args ...string) (*domain.ExecutionResult, error) {
+func (m *MockSandboxManager) ExecuteWASM(ctx context.Context, config domain.SandboxConfig, wasmBytes []byte, args ...string) (*domain.ExecutionResult, error) {
 	m.execCalls++
 	if m.execError != nil {
 		return nil, m.execError
@@ -108,9 +108,9 @@ func TestMorphicLoop_Execute_DirectResponse(t *testing.T) {
 		return string(b), nil
 	}
 
-	loop := usecase.NewMorphicLoop(repo, agent, sandbox)
+	loop := usecase.NewMorphicLoop(repo, nil, agent, sandbox)
 
-	result, err := loop.Execute(context.Background(), "say hello")
+	result, err := loop.Execute(context.Background(), "", "say hello")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -152,9 +152,9 @@ func TestMorphicLoop_Execute_ForgeAndCall(t *testing.T) {
 		return string(b), nil
 	}
 
-	loop := usecase.NewMorphicLoop(repo, agent, sandbox)
+	loop := usecase.NewMorphicLoop(repo, nil, agent, sandbox)
 
-	result, err := loop.Execute(context.Background(), "do something")
+	result, err := loop.Execute(context.Background(), "", "do something")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestMorphicLoop_Execute_ForgeAndCall(t *testing.T) {
 	}
 
 	// Verify tool was saved to repo
-	tool, err := repo.GetByName(context.Background(), "my_tool")
+	tool, err := repo.GetByName(context.Background(), "", "my_tool")
 	if err != nil {
 		t.Fatalf("tool not saved in repo")
 	}
@@ -236,9 +236,9 @@ func TestMorphicLoop_Execute_ExecutionSelfCorrection(t *testing.T) {
 		return string(b), nil
 	}
 
-	loop := usecase.NewMorphicLoop(repo, agent, sandbox)
+	loop := usecase.NewMorphicLoop(repo, nil, agent, sandbox)
 
-	result, err := loop.Execute(context.Background(), "do something")
+	result, err := loop.Execute(context.Background(), "", "do something")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

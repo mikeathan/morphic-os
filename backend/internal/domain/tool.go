@@ -8,7 +8,8 @@ import (
 // Tool represents a synthesized microservice tool that the agent can use.
 type Tool struct {
 	ID          string    `json:"id" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"uniqueIndex"`
+	WorkspaceID string    `json:"workspace_id" gorm:"uniqueIndex:idx_workspace_name"` // Link to the Workspace
+	Name        string    `json:"name" gorm:"uniqueIndex:idx_workspace_name"` // Allow same tool name in different workspaces but unique per workspace ideally
 	Description string    `json:"description"`
 	JSONSchema  string    `json:"json_schema"` // Stored as a JSON string
 	Language    string    `json:"language"`
@@ -24,8 +25,8 @@ type Tool struct {
 type ToolRepository interface {
 	Create(ctx context.Context, tool *Tool) error
 	GetByID(ctx context.Context, id string) (*Tool, error)
-	GetByName(ctx context.Context, name string) (*Tool, error)
-	ListActive(ctx context.Context) ([]*Tool, error)
+	GetByName(ctx context.Context, workspaceID string, name string) (*Tool, error)
+	ListActive(ctx context.Context, workspaceID string) ([]*Tool, error)
 	Update(ctx context.Context, tool *Tool) error
 	Delete(ctx context.Context, id string) error
 }

@@ -2,6 +2,7 @@ package wasm_test
 
 import (
 	"context"
+	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/infrastructure/wasm"
 	"os"
 	"path/filepath"
@@ -22,7 +23,7 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 	defer sm.Close(ctx)
 
 	t.Run("Execute without args", func(t *testing.T) {
-		res, err := sm.ExecuteWASM(ctx, wasmBytes)
+		res, err := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -37,7 +38,7 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 	})
 
 	t.Run("Execute with args", func(t *testing.T) {
-		res, err := sm.ExecuteWASM(ctx, wasmBytes, "Morphic")
+		res, err := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes, "Morphic")
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -49,12 +50,12 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 	})
 
 	t.Run("Execute multiple times to test collision handling", func(t *testing.T) {
-		_, err1 := sm.ExecuteWASM(ctx, wasmBytes, "First")
+		_, err1 := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes, "First")
 		if err1 != nil {
 			t.Fatalf("expected no error on first execution, got %v", err1)
 		}
 
-		res2, err2 := sm.ExecuteWASM(ctx, wasmBytes, "Second")
+		res2, err2 := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes, "Second")
 		if err2 != nil {
 			t.Fatalf("expected no error on second execution, got %v", err2)
 		}
@@ -88,7 +89,7 @@ func main() {
 		}
 
 		// Execute to verify it works
-		res, err := sm.ExecuteWASM(ctx, wasmBytes)
+		res, err := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes)
 		if err != nil {
 			t.Fatalf("failed to execute dynamically compiled wasm: %v", err)
 		}
@@ -128,7 +129,7 @@ func main() {
 			t.Fatalf("expected compilation with dependencies to succeed, got error: %v", err)
 		}
 
-		res, err := sm.ExecuteWASM(ctx, wasmBytes)
+		res, err := sm.ExecuteWASM(ctx, domain.SandboxConfig{}, wasmBytes)
 		if err != nil {
 			t.Fatalf("failed to execute dynamically compiled wasm with dependency: %v", err)
 		}

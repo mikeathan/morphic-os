@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,18 +35,20 @@ type AgentResponse struct {
 
 // MorphicLoop orchestrates the execution flow.
 type MorphicLoop struct {
-	toolRepo     domain.ToolRepository
-	agent        Agent
-	sandbox      domain.SandboxManager
-	broadcastLog func(msg string)
+	toolRepo      domain.ToolRepository
+	workspaceRepo domain.WorkspaceRepository
+	agent         Agent
+	sandbox       domain.SandboxManager
+	broadcastLog  func(msg string)
 }
 
 // NewMorphicLoop creates a new MorphicLoop instance.
-func NewMorphicLoop(toolRepo domain.ToolRepository, agent Agent, sandbox domain.SandboxManager) *MorphicLoop {
+func NewMorphicLoop(toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, agent Agent, sandbox domain.SandboxManager) *MorphicLoop {
 	return &MorphicLoop{
-		toolRepo: toolRepo,
-		agent:    agent,
-		sandbox:  sandbox,
+		toolRepo:      toolRepo,
+		workspaceRepo: workspaceRepo,
+		agent:         agent,
+		sandbox:       sandbox,
 	}
 }
 
@@ -67,13 +71,13 @@ func (l *MorphicLoop) logEvent(level, message string) {
 	}
 }
 
-// Execute handles a single user task.
-func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) {
-	l.logEvent("INFO", fmt.Sprintf("Received task: %q", task))
+// Execute handles a single user task within a workspace.
+func (l *MorphicLoop) Execute(ctx context.Context, workspaceID string, task string) (string, error) {
+	l.logEvent("INFO", fmt.Sprintf("Received task in workspace %s: %q", workspaceID, task))
 
 	// 1. Context Assembly: Query SQLite for active tools
 	l.logEvent("EVAL", "Assembling context...")
-	activeTools, err := l.toolRepo.ListActive(ctx)
+	activeTools, err := l.toolRepo.ListActive(ctx, workspaceID)
 	if err != nil {
 		return "", err
 	}
@@ -108,17 +112,17 @@ func (l *MorphicLoop) Execute(ctx context.Context, task string) (string, error) 
 	case "direct_response":
 		return response.Response, nil
 	case "sys_forge_tool":
-		return l.forgeTool(ctx, task, response, activeTools)
+		return l.forgeTool(ctx, workspaceID, task, response, activeTools)
 	case "tool_call":
-		return l.executeTool(ctx, task, response)
+		return l.executeTool(ctx, workspaceID, task, response)
 	default:
 		return "", fmt.Errorf("unknown action type: %s", response.Action)
 	}
 }
 
-func (l *MorphicLoop) executeTool(ctx context.Context, task string, response AgentResponse) (string, error) {
+func (l *MorphicLoop) executeTool(ctx context.Context, workspaceID string, task string, response AgentResponse) (string, error) {
 	l.logEvent("EXEC", fmt.Sprintf("Executing tool %s", response.ToolName))
-	tool, err := l.toolRepo.GetByName(ctx, response.ToolName)
+	tool, err := l.toolRepo.GetByName(ctx, workspaceID, response.ToolName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get tool %s from repository: %w", response.ToolName, err)
 	}
@@ -135,7 +139,24 @@ func (l *MorphicLoop) executeTool(ctx context.Context, task string, response Age
 		_ = l.toolRepo.Update(ctx, tool)
 	}
 
-	execResult, err := l.sandbox.ExecuteWASM(ctx, compiledWasm, response.Arguments...)
+	sandboxConfig := domain.SandboxConfig{
+		TimeoutSeconds: 30, // Default timeout
+	}
+
+	if l.workspaceRepo != nil && workspaceID != "" && workspaceID != "default" {
+		workspace, err := l.workspaceRepo.GetByID(ctx, workspaceID)
+		if err == nil {
+			sandboxConfig.EnvVars = workspace.EnvVars
+			baseDir := os.Getenv("WORKSPACE_BASE_DIR")
+			if baseDir == "" {
+				baseDir = "/tmp/morphic-os/workspaces/"
+			}
+			// Only use the base of the ID to avoid path traversal just in case
+			sandboxConfig.WorkspaceFSDir = filepath.Join(baseDir, filepath.Base(workspace.ID))
+		}
+	}
+
+	execResult, err := l.sandbox.ExecuteWASM(ctx, sandboxConfig, compiledWasm, response.Arguments...)
 
 	// Check for execution errors or significant stderr indicating a failure
 	if err != nil || execResult.Stderr != "" {
@@ -170,7 +191,7 @@ func (l *MorphicLoop) executeTool(ctx context.Context, task string, response Age
 		tool.Active = false
 		_ = l.toolRepo.Update(ctx, tool)
 
-		return l.forgeTool(ctx, task, fixedResponse, nil)
+		return l.forgeTool(ctx, workspaceID, task, fixedResponse, nil)
 	}
 
 	// Increment ExecStats and save
@@ -183,7 +204,7 @@ func (l *MorphicLoop) executeTool(ctx context.Context, task string, response Age
 	return execResult.Stdout, nil
 }
 
-func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response AgentResponse, activeTools []*domain.Tool) (string, error) {
+func (l *MorphicLoop) forgeTool(ctx context.Context, workspaceID string, task string, response AgentResponse, activeTools []*domain.Tool) (string, error) {
 	l.logEvent("FORGE", fmt.Sprintf("Forging tool %s", response.ToolName))
 	sourceCode := response.SourceCode
 	language := response.Language
@@ -225,6 +246,7 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 	l.logEvent("INFO", fmt.Sprintf("Saving tool %s to registry", response.ToolName))
 	newTool := &domain.Tool{
 		ID:          uuid.New().String(),
+		WorkspaceID: workspaceID,
 		Name:        response.ToolName,
 		Description: response.Description,
 		JSONSchema:  response.JSONSchema,
@@ -241,5 +263,5 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 	}
 
 	// We call Execute again to fetch the latest active tools and have the agent decide the next step
-	return l.Execute(ctx, task)
+	return l.Execute(ctx, workspaceID, task)
 }

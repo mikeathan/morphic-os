@@ -39,7 +39,7 @@ func TestSQLiteToolRepository(t *testing.T) {
 	}
 
 	// Test ListActive
-	activeTools, err := repo.ListActive(ctx)
+	activeTools, err := repo.ListActive(ctx, "")
 	if err != nil {
 		t.Fatalf("failed to list active tools: %v", err)
 	}

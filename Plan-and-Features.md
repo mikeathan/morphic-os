@@ -37,3 +37,10 @@
 - **Context Management:** Limit tools sent to LLM prompt (e.g., limited to 10 tools max).
 - **Dependencies:** Sandbox orchestrator runs `go mod init mytool` and `go mod tidy` when needed.
 - **Security:** Strict container resource limits implemented using Wazero's `WithMemoryLimitPages(1024)`.
+
+## Phase 5: Workspaces and Advanced Sandboxing (In Progress)
+**Objective:** Add robust isolation and configuration for workspaces, supporting tools that require databases and external configurations.
+- **Workspaces:** Implement `Workspace` domain models. Link tools to a specific `WorkspaceID`.
+- **Sandbox Isolation:** Mount workspace-specific directories into the Wazero runtime (`WithFS`) and inject workspace environment variables (`WithEnv`), enabling the tools to access local files safely and use external API/Database credentials.
+- **Configurable Timeouts:** Make execution timeouts configurable instead of hardcoded to 30 seconds.
+- **Real-Time Log Streaming:** Stream the WASM tools' standard output via the `/api/logs` endpoint, so the user can see what a long-running tool is doing live.
