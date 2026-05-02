@@ -25,6 +25,7 @@ type AgentResponse struct {
 	Response    string   `json:"response,omitempty"`    // For direct_response
 	ToolName    string   `json:"tool_name,omitempty"`   // For sys_forge_tool or tool_call
 	Description string   `json:"description,omitempty"` // For sys_forge_tool
+	Language    string   `json:"language,omitempty"`    // For sys_forge_tool
 	SourceCode  string   `json:"source_code,omitempty"` // For sys_forge_tool
 	JSONSchema  string   `json:"json_schema,omitempty"` // For sys_forge_tool
 	Arguments   []string `json:"arguments,omitempty"`   // For tool_call
@@ -125,7 +126,7 @@ func (l *MorphicLoop) executeTool(ctx context.Context, task string, response Age
 	compiledWasm := tool.WasmBinary
 	if len(compiledWasm) == 0 {
 		// Fallback: compile if we don't have the binary cached
-		compiledWasm, err = l.sandbox.CompileGoToWASM(ctx, tool.SourceCode)
+		compiledWasm, err = l.sandbox.CompileToWASM(ctx, tool.Language, tool.SourceCode)
 		if err != nil {
 			return "", fmt.Errorf("failed to compile tool %s: %w", tool.Name, err)
 		}
@@ -185,13 +186,17 @@ func (l *MorphicLoop) executeTool(ctx context.Context, task string, response Age
 func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response AgentResponse, activeTools []*domain.Tool) (string, error) {
 	l.logEvent("FORGE", fmt.Sprintf("Forging tool %s", response.ToolName))
 	sourceCode := response.SourceCode
+	language := response.Language
+	if language == "" {
+		language = "go"
+	}
 	var compiledWasm []byte
 	var err error
 	maxRetries := 3
 
 	for i := 0; i < maxRetries; i++ {
 		l.logEvent("FORGE", fmt.Sprintf("Compiling tool to WebAssembly (Attempt %d)", i+1))
-		compiledWasm, err = l.sandbox.CompileGoToWASM(ctx, sourceCode)
+		compiledWasm, err = l.sandbox.CompileToWASM(ctx, language, sourceCode)
 		if err == nil {
 			l.logEvent("SUCCESS", "Compilation succeeded")
 			break // Compilation succeeded
@@ -223,7 +228,7 @@ func (l *MorphicLoop) forgeTool(ctx context.Context, task string, response Agent
 		Name:        response.ToolName,
 		Description: response.Description,
 		JSONSchema:  response.JSONSchema,
-		Language:    "go",
+		Language:    language,
 		SourceCode:  sourceCode,
 		WasmBinary:  compiledWasm,
 		Active:      true,

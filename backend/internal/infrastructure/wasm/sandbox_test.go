@@ -66,7 +66,7 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 	})
 }
 
-func TestWazeroSandboxManager_CompileGoToWASM(t *testing.T) {
+func TestWazeroSandboxManager_CompileToWASM(t *testing.T) {
 	ctx := context.Background()
 	sm := wasm.NewWazeroSandboxManager(ctx)
 	defer sm.Close(ctx)
@@ -78,7 +78,7 @@ func main() {
 	fmt.Println("Dynamic compile test!")
 }`
 
-		wasmBytes, err := sm.CompileGoToWASM(ctx, sourceCode)
+		wasmBytes, err := sm.CompileToWASM(ctx, "go", sourceCode)
 		if err != nil {
 			t.Fatalf("expected compilation to succeed, got error: %v", err)
 		}
@@ -106,7 +106,7 @@ func main() {
 	fmt.Println("Missing bracket"
 }`
 
-		_, err := sm.CompileGoToWASM(ctx, sourceCode)
+		_, err := sm.CompileToWASM(ctx, "go", sourceCode)
 		if err == nil {
 			t.Fatalf("expected compilation to fail, but it succeeded")
 		}
@@ -123,7 +123,7 @@ func main() {
 	fmt.Printf("UUID length: %d\n", len(id.String()))
 }`
 
-		wasmBytes, err := sm.CompileGoToWASM(ctx, sourceCode)
+		wasmBytes, err := sm.CompileToWASM(ctx, "go", sourceCode)
 		if err != nil {
 			t.Fatalf("expected compilation with dependencies to succeed, got error: %v", err)
 		}
