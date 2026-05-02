@@ -21,6 +21,9 @@ func SetupRouter(handler *Handler) http.Handler {
 		}
 	})
 
+	mux.HandleFunc("/api/vfs/files", handler.HandleListFiles)
+	mux.HandleFunc("/api/vfs/files/", handler.HandleGetFile)
+
 	// Wrap the mux with the CORS middleware
 	return CORSMiddleware(mux)
 }

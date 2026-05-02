@@ -48,6 +48,6 @@
 - Implement the Dashboard features:
   - **[Completed]** **The Morphic Map (React Flow):** Visualizer showing active tools, daemons, and pipes.
   - **Terminal / stdout:** Live-streaming view.
-  - **VFS Explorer:** File-tree UI to browse `/var/logs` or `/home/agent`.
+  - **[Completed]** **VFS Explorer:** File-tree UI to browse `/var/logs` or `/home/agent`.
   - **Hardware & Metrics:** Real-time displays of node utilization and pruning stats.
   - **Secrets Manager:** Secure UI to input API keys.

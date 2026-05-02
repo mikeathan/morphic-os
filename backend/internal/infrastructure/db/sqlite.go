@@ -26,8 +26,8 @@ func NewSQLiteToolRepository(dbPath string) (*SQLiteToolRepository, error) {
 		return nil, fmt.Errorf("failed to connect to sqlite database: %w", err)
 	}
 
-	// Auto-migrate the Tool schema
-	if err := db.AutoMigrate(&domain.Workspace{}, &domain.Tool{}); err != nil {
+	// Auto-migrate the schema
+	if err := db.AutoMigrate(&domain.Workspace{}, &domain.Tool{}, &domain.VirtualFile{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
