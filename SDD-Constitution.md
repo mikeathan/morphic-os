@@ -21,7 +21,14 @@ Morphic-OS is a "Self-Synthesizing AI Operating System" built on SOLID principle
 - **Interface Segregation:** Define small, focused interfaces where they are *used*, not where they are implemented.
 - **Concurrency:** Leverage Go routines for parallel test execution or background registry updates, managed strictly with `sync.WaitGroup` and channels.
 
-## 4. LLM Tool Calling JSON Structure
+## 4. WebAssembly (Wasm) Execution Strategy
+Instead of implementing complex Wasm memory bridge abstractions (e.g., memory allocation/retrieval via exported Wasm functions), Morphic-OS utilizes `wasip1` to leverage standard Go execution patterns natively.
+- Generated tools are compiled using `GOOS=wasip1 GOARCH=wasm go build`.
+- Inputs to tools are passed as standard command-line arguments and read natively within the generated Wasm using `os.Args`.
+- Outputs and errors are natively captured via standard `stdout` and `stderr` streams by configuring the `wazero` sandbox environment `WithArgs`, `WithStdout`, and `WithStderr`.
+- Executing a `wasip1` binary that successfully exits will result in a `sys.ExitError` with exit code `0`, which the Sandbox correctly handles as a success state.
+
+## 5. LLM Tool Calling JSON Structure
 To standardize interactions, tools will use OpenAI's JSON schema format for function calling:
 
 ```json
@@ -44,7 +51,7 @@ To standardize interactions, tools will use OpenAI's JSON schema format for func
 }
 ```
 
-## 5. Directory Structure
+## 6. Directory Structure
 ```
 morphic-os/
 ├── backend/
