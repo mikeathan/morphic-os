@@ -46,7 +46,7 @@
 - Initialize Next.js/Vite app.
 - Build the Go WebSocket APIs for real-time communication.
 - Implement the Dashboard features:
-  - **The Morphic Map (React Flow):** Visualizer showing active tools, daemons, and pipes.
+  - **[Completed]** **The Morphic Map (React Flow):** Visualizer showing active tools, daemons, and pipes.
   - **Terminal / stdout:** Live-streaming view.
   - **VFS Explorer:** File-tree UI to browse `/var/logs` or `/home/agent`.
   - **Hardware & Metrics:** Real-time displays of node utilization and pruning stats.
