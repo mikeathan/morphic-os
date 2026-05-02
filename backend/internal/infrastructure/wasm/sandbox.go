@@ -36,8 +36,18 @@ func NewWazeroSandboxManager(ctx context.Context) *WazeroSandboxManager {
 	}
 }
 
-// CompileGoToWASM compiles the provided Go source code to WebAssembly using the local Go toolchain.
-func (sm *WazeroSandboxManager) CompileGoToWASM(ctx context.Context, sourceCode string) ([]byte, error) {
+// CompileToWASM compiles the provided source code to WebAssembly based on the given language.
+func (sm *WazeroSandboxManager) CompileToWASM(ctx context.Context, language string, sourceCode string) ([]byte, error) {
+	switch language {
+	case "go":
+		return sm.compileGoToWASM(ctx, sourceCode)
+	default:
+		return nil, fmt.Errorf("unsupported language for WASM compilation: %s", language)
+	}
+}
+
+// compileGoToWASM compiles the provided Go source code to WebAssembly using the local Go toolchain.
+func (sm *WazeroSandboxManager) compileGoToWASM(ctx context.Context, sourceCode string) ([]byte, error) {
 	// Create a temporary directory for the build
 	tempDir, err := os.MkdirTemp("", "morphic-build-*")
 	if err != nil {

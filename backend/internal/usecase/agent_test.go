@@ -72,10 +72,13 @@ type MockSandboxManager struct {
 	execCalls    int
 }
 
-func (m *MockSandboxManager) CompileGoToWASM(ctx context.Context, sourceCode string) ([]byte, error) {
+func (m *MockSandboxManager) CompileToWASM(ctx context.Context, language string, sourceCode string) ([]byte, error) {
 	m.compileCalls++
 	if m.compileError != nil {
 		return nil, m.compileError
+	}
+	if language != "go" {
+		return nil, errors.New("unsupported language in mock")
 	}
 	return []byte("fake-wasm-binary"), nil
 }

@@ -18,6 +18,6 @@ type SandboxManager interface {
 	// It accepts execution arguments and returns the standard output, standard error, and any execution error.
 	ExecuteWASM(ctx context.Context, wasmBytes []byte, args ...string) (*ExecutionResult, error)
 
-	// CompileGoToWASM compiles the provided Go source code into WebAssembly bytes.
-	CompileGoToWASM(ctx context.Context, sourceCode string) ([]byte, error)
+	// CompileToWASM compiles the provided source code of the specified language into WebAssembly bytes.
+	CompileToWASM(ctx context.Context, language string, sourceCode string) ([]byte, error)
 }
