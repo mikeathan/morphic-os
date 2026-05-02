@@ -54,13 +54,18 @@ func main() {
 	broadcaster := morphichttp.NewBroadcaster()
 
 	vfsRepo := db.NewSQLiteVirtualFileRepository(toolRepo.GetDB())
+	secretRepo := db.NewSQLiteSecretRepository(toolRepo.GetDB())
+
+	// TODO: Load encryption key securely in production
+	encryptionKey := "this-is-a-super-secret-key-that-must-be-32-bytes"
+	secretSvc := usecase.NewSecretService(secretRepo, encryptionKey)
 
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, broadcaster)
+	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server
