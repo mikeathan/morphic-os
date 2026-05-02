@@ -11,15 +11,16 @@ import (
 	"morphic-os/backend/internal/domain"
 )
 
-// OpenAIAgent implements the usecase.Agent interface using the OpenAI API (or compatible local API).
-type OpenAIAgent struct {
+// CloudProviderAgent implements the usecase.Agent interface for any provider compatible with the OpenAI chat completions API.
+// This includes OpenAI, OpenRouter, Mule Router, Nvidia Build, and Gemini (via OpenAI compatibility layer).
+type CloudProviderAgent struct {
 	apiKey  string
 	baseURL string
 	model   string
 }
 
-// NewOpenAIAgent creates a new OpenAIAgent.
-func NewOpenAIAgent(apiKey, baseURL, model string) *OpenAIAgent {
+// NewCloudProviderAgent creates a new CloudProviderAgent.
+func NewCloudProviderAgent(apiKey, baseURL, model string) *CloudProviderAgent {
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1/chat/completions"
 	} else if !strings.HasSuffix(baseURL, "/chat/completions") {
@@ -30,7 +31,7 @@ func NewOpenAIAgent(apiKey, baseURL, model string) *OpenAIAgent {
 	if model == "" {
 		model = "gpt-4o"
 	}
-	return &OpenAIAgent{
+	return &CloudProviderAgent{
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
@@ -38,7 +39,7 @@ func NewOpenAIAgent(apiKey, baseURL, model string) *OpenAIAgent {
 }
 
 // EvaluateTask analyzes the given task and returns a planned action.
-func (a *OpenAIAgent) EvaluateTask(ctx context.Context, task string, tools []*domain.Tool) (string, error) {
+func (a *CloudProviderAgent) EvaluateTask(ctx context.Context, task string, tools []*domain.Tool) (string, error) {
 	systemPrompt := `You are Morphic-OS, an AI operating system.
 Your goal is to complete the user's task.
 
@@ -69,10 +70,10 @@ Respond ONLY with a valid JSON object matching this schema:
   "arguments": ["arg1", "arg2"] // Array of string arguments (if tool_call)
 }`
 
-	return a.callOpenAI(ctx, systemPrompt, task)
+	return a.callProvider(ctx, systemPrompt, task)
 }
 
-func (a *OpenAIAgent) callOpenAI(ctx context.Context, systemPrompt, userMessage string) (string, error) {
+func (a *CloudProviderAgent) callProvider(ctx context.Context, systemPrompt, userMessage string) (string, error) {
 	reqBody := map[string]interface{}{
 		"model": a.model,
 		"messages": []map[string]string{
@@ -132,7 +133,7 @@ func (a *OpenAIAgent) callOpenAI(ctx context.Context, systemPrompt, userMessage 
 }
 
 // FixTool asks the LLM to fix the tool code based on the compilation/execution error.
-func (a *OpenAIAgent) FixTool(ctx context.Context, task string, code string, errorMessage string) (string, error) {
+func (a *CloudProviderAgent) FixTool(ctx context.Context, task string, code string, errorMessage string) (string, error) {
 	systemPrompt := `You are Morphic-OS, an AI operating system.
 Your goal is to fix the provided Go code that failed to compile or execute.
 
@@ -154,5 +155,5 @@ You MUST respond ONLY with a valid JSON object matching this schema:
 	formattedPrompt := fmt.Sprintf(systemPrompt, task, code, errorMessage)
 
 	// We pass an empty string for userMessage here as the system prompt contains all the context
-	return a.callOpenAI(ctx, formattedPrompt, "Fix the code and output the JSON.")
+	return a.callProvider(ctx, formattedPrompt, "Fix the code and output the JSON.")
 }

@@ -1,61 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { fetchTools, submitTask } from './services/api';
-import { Tool, LogEvent } from './types';
+import React, { useState } from 'react';
 import { ToolRegistry } from './components/ToolRegistry';
-import { LiveLogs } from './components/LiveLogs';
 import { TaskSubmissionForm } from './components/TaskSubmissionForm';
+import { TaskDisplay } from './components/TaskDisplay';
+import { useMorphicLoop } from './hooks/useMorphicLoop';
 
 export default function Home() {
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [logs, setLogs] = useState<LogEvent[]>([]);
+  const { tools, currentTask, history, isSubmitting, runTask } = useMorphicLoop();
   const [taskInput, setTaskInput] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [taskResult, setTaskResult] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Initial fetch of tools
-    fetchTools()
-      .then(setTools)
-      .catch((err) => console.error("Failed to fetch tools:", err));
-
-    // Setup SSE for real-time logs
-    const eventSource = new EventSource('/api/logs');
-    eventSource.onmessage = (event) => {
-      try {
-        const parsedLog = JSON.parse(event.data);
-        setLogs((prev) => [...prev, parsedLog]);
-      } catch (err) {
-        console.error("Failed to parse log event:", err);
-      }
-    };
-    return () => {
-      eventSource.close();
-    };
-  }, []);
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskInput.trim()) return;
 
-    setIsSubmitting(true);
-    setTaskResult(null);
-    setLogs([]); // Clear logs for new task
-
-    try {
-      const result = await submitTask(taskInput);
-      setTaskResult(result);
-
-      // Refresh tool registry after task completes
-      const updatedTools = await fetchTools();
-      setTools(updatedTools);
-    } catch (err: any) {
-      setTaskResult(`Error: ${err.message}`);
-    } finally {
-      setIsSubmitting(false);
-      setTaskInput("");
-    }
+    await runTask(taskInput);
+    setTaskInput("");
   };
 
   return (
@@ -65,17 +25,40 @@ export default function Home() {
         <p className="text-zinc-600 dark:text-zinc-400 mt-2">Real-time monitoring and tool registry</p>
       </header>
 
-      <TaskSubmissionForm
-        taskInput={taskInput}
-        setTaskInput={setTaskInput}
-        isSubmitting={isSubmitting}
-        handleSubmitTask={handleTaskSubmit}
-        taskResult={taskResult}
-      />
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-      <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ToolRegistry tools={tools} />
-        <LiveLogs logs={logs} />
+        {/* Left Column: Tools */}
+        <div className="lg:col-span-1">
+          <ToolRegistry tools={tools} />
+        </div>
+
+        {/* Right Column: Interaction & History */}
+        <div className="lg:col-span-2 flex flex-col h-full">
+          <TaskSubmissionForm
+            taskInput={taskInput}
+            setTaskInput={setTaskInput}
+            isSubmitting={isSubmitting}
+            handleSubmitTask={handleTaskSubmit}
+            taskResult={null} // Task result is now handled by TaskDisplay
+          />
+
+          <div className="mt-4 flex-1">
+            {currentTask && (
+              <TaskDisplay taskResponse={currentTask} isActive={true} />
+            )}
+
+            {history.map((task) => (
+              <TaskDisplay key={task.id} taskResponse={task} isActive={false} />
+            ))}
+
+            {!currentTask && history.length === 0 && (
+              <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl">
+                Submit a task to see Morphic-OS in action.
+              </div>
+            )}
+          </div>
+        </div>
+
       </main>
     </div>
   );

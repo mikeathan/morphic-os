@@ -7,7 +7,13 @@ Morphic-OS is a "Self-Synthesizing AI Operating System" built on SOLID principle
 - **Domain Layer:** The core. Contains enterprise-wide logic, entities (e.g., `Tool`, `SystemCall`), and interface definitions. No external dependencies.
 - **UseCase Layer:** Contains application-specific business rules. Orchestrates the Morphic Loop, handles capability gaps, and manages the self-correction retry logic.
 - **Interface/Adapter Layer:** Adapts data from UseCases to external agencies like HTTP routers (REST/gRPC) and the CLI.
-- **Infrastructure Layer:** Frameworks, databases, and external APIs. Includes SQLite registry interactions, WebAssembly (Wazero) sandboxing, and LLM API clients (Ollama, OpenAI, etc.).
+- **Infrastructure Layer:** Frameworks, databases, and external APIs. Includes SQLite registry interactions, WebAssembly (Wazero) sandboxing, and multiple LLM API clients (OpenAI, Gemini, OpenRouter, Mule Router, Nvidia Build). Configuration is injected via a config structure (YAML/JSON) rather than relying solely on global environment variables.
+
+## 2.1 Frontend Architecture
+- **Abstraction and Scalability:** The frontend (Next.js) must be abstracted for future expansion. Utilize modular services, custom hooks, and a clean domain-driven or feature-based component folder structure.
+- **Features:**
+  - Real-time streaming of agent responses with VS Code-style collapsible UI elements.
+  - Persistent conversation histories, allowing users to view previous and current interactions without losing context.
 
 ## 3. Go Idiomatic Patterns
 - **Error Handling:** Use `fmt.Errorf("...: %w", err)` for wrapping errors to preserve stack context. Create custom error types for domain-specific failures (e.g., `ErrCompilationFailed`, `ErrSandboxTimeout`).
