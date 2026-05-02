@@ -1,22 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafafa; /* zinc-50 */
+  --foreground: #18181b; /* zinc-900 */
+  --bg-primary: #fafafa; /* zinc-50 */
+  --bg-secondary: #ffffff; /* white */
+  --bg-tertiary: #f4f4f5; /* zinc-100 */
+  --bg-panel: #ffffff;
+  --border-default: #e4e4e7; /* zinc-200 */
+  --text-primary: #18181b; /* zinc-900 */
+  --text-secondary: #52525b; /* zinc-600 */
+  --text-muted: #a1a1aa; /* zinc-400 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b; /* zinc-950 */
+    --foreground: #fafafa; /* zinc-50 */
+    --bg-primary: #09090b; /* zinc-950 */
+    --bg-secondary: #18181b; /* zinc-900 */
+    --bg-tertiary: #27272a; /* zinc-800 */
+    --bg-panel: #18181b;
+    --border-default: #27272a; /* zinc-800 */
+    --text-primary: #fafafa; /* zinc-50 */
+    --text-secondary: #a1a1aa; /* zinc-400 */
+    --text-muted: #52525b; /* zinc-600 */
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--bg-primary);
+  --color-secondary: var(--bg-secondary);
+  --color-tertiary: var(--bg-tertiary);
+  --color-panel: var(--bg-panel);
+  --color-border-default: var(--border-default);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

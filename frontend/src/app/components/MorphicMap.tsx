@@ -8,9 +8,9 @@ interface MorphicMapProps {
 
 export const MorphicMap: React.FC<MorphicMapProps> = ({ tools }) => {
   return (
-    <section className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 mt-6">
+    <section className="bg-panel rounded-xl shadow-sm border border-border-default p-6 mt-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Morphic Map</h2>
+        <h2 className="text-xl font-semibold text-text-primary">Morphic Map</h2>
         <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-xs font-medium px-2.5 py-0.5 rounded-full">Visualizer</span>
       </div>
 
