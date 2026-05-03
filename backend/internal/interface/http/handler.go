@@ -12,6 +12,17 @@ import (
 )
 
 // Handler represents the HTTP handler.
+// HandlerParams encapsulates all dependencies required by the Handler.
+type HandlerParams struct {
+	MorphicLoop   *usecase.MorphicLoop
+	ToolRepo      domain.ToolRepository
+	WorkspaceRepo domain.WorkspaceRepository
+	VFSRepo       domain.VirtualFileRepository
+	SecretSvc     *usecase.SecretService
+	Broadcaster   *Broadcaster
+	SleepCycle    *usecase.NightlySleepCycle
+}
+
 type Handler struct {
 	morphicLoop   *usecase.MorphicLoop
 	toolRepo      domain.ToolRepository
@@ -23,15 +34,15 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, secretSvc *usecase.SecretService, broadcaster *Broadcaster, sleepCycle *usecase.NightlySleepCycle) *Handler {
+func NewHandler(params HandlerParams) *Handler {
 	return &Handler{
-		morphicLoop:   morphicLoop,
-		toolRepo:      toolRepo,
-		workspaceRepo: workspaceRepo,
-		vfsRepo:       vfsRepo,
-		secretSvc:     secretSvc,
-		broadcaster:   broadcaster,
-		sleepCycle:    sleepCycle,
+		morphicLoop:   params.MorphicLoop,
+		toolRepo:      params.ToolRepo,
+		workspaceRepo: params.WorkspaceRepo,
+		vfsRepo:       params.VFSRepo,
+		secretSvc:     params.SecretSvc,
+		broadcaster:   params.Broadcaster,
+		sleepCycle:    params.SleepCycle,
 	}
 }
 

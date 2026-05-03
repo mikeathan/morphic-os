@@ -112,7 +112,16 @@ func main() {
 	}()
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster, sleepCycleDaemon)
+	handlerParams := morphichttp.HandlerParams{
+		MorphicLoop:   morphicLoop,
+		ToolRepo:      toolRepo,
+		WorkspaceRepo: workspaceRepo,
+		VFSRepo:       vfsRepo,
+		SecretSvc:     secretSvc,
+		Broadcaster:   broadcaster,
+		SleepCycle:    sleepCycleDaemon,
+	}
+	handler := morphichttp.NewHandler(handlerParams)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server
