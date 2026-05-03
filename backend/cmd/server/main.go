@@ -14,6 +14,7 @@ import (
 	"morphic-os/backend/internal/infrastructure/wasm"
 	morphichttp "morphic-os/backend/internal/interface/http"
 	"morphic-os/backend/internal/usecase"
+	"time"
 )
 
 func loadEnvFile() {
@@ -66,17 +67,14 @@ func main() {
 	}()
 
 	// 3. Initialize LLM Agent Factory (Abstracted for future expansion)
-	agent, err := llm.NewAgentFactory(cfg.Active, cfg.LLM[cfg.Active])
-	if err != nil {
-		log.Printf("Failed to initialize specified agent '%s': %v. Falling back to MockAgent.", cfg.Active, err)
-		agent = llm.NewMockAgent()
-	}
+	agent := llm.NewAgentFactory(cfg)
 
 	// Initialize Broadcaster
 	broadcaster := morphichttp.NewBroadcaster()
 
 	vfsRepo := db.NewSQLiteVirtualFileRepository(toolRepo.GetDB())
 	secretRepo := db.NewSQLiteSecretRepository(toolRepo.GetDB())
+	memoryRepo := db.NewSQLiteMemoryRepository(toolRepo.GetDB())
 
 	// Load env
 	loadEnvFile()
@@ -91,9 +89,22 @@ func main() {
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
+	// Initialize Nightly Sleep Cycle Daemon
+	sleepCycleConfig := usecase.SleepCycleConfig{
+		MaxLastRecallDays:  30,
+		MaxAccessFrequency: 5,
+	}
+	sleepCycleDaemon := usecase.NewNightlySleepCycle(memoryRepo, agent, sleepCycleConfig)
+
 	// Initialize Scheduler
 	scheduler := usecase.NewScheduler()
 	schedulerCtx, cancelScheduler := context.WithCancel(ctx)
+
+	// Schedule the Sleep Cycle to run every 24 hours
+	if err := scheduler.Schedule("nightly-sleep-cycle", 24*time.Hour, sleepCycleDaemon.Run); err != nil {
+		log.Printf("Failed to schedule nightly sleep cycle: %v", err)
+	}
+
 	scheduler.Start(schedulerCtx)
 	defer func() {
 		cancelScheduler()
@@ -101,7 +112,16 @@ func main() {
 	}()
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster)
+	handlerParams := morphichttp.HandlerParams{
+		MorphicLoop:   morphicLoop,
+		ToolRepo:      toolRepo,
+		WorkspaceRepo: workspaceRepo,
+		VFSRepo:       vfsRepo,
+		SecretSvc:     secretSvc,
+		Broadcaster:   broadcaster,
+		SleepCycle:    sleepCycleDaemon,
+	}
+	handler := morphichttp.NewHandler(handlerParams)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server

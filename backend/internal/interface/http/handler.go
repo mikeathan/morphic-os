@@ -12,6 +12,17 @@ import (
 )
 
 // Handler represents the HTTP handler.
+// HandlerParams encapsulates all dependencies required by the Handler.
+type HandlerParams struct {
+	MorphicLoop   *usecase.MorphicLoop
+	ToolRepo      domain.ToolRepository
+	WorkspaceRepo domain.WorkspaceRepository
+	VFSRepo       domain.VirtualFileRepository
+	SecretSvc     *usecase.SecretService
+	Broadcaster   *Broadcaster
+	SleepCycle    *usecase.NightlySleepCycle
+}
+
 type Handler struct {
 	morphicLoop   *usecase.MorphicLoop
 	toolRepo      domain.ToolRepository
@@ -19,17 +30,19 @@ type Handler struct {
 	vfsRepo       domain.VirtualFileRepository
 	secretSvc     *usecase.SecretService
 	broadcaster   *Broadcaster
+	sleepCycle    *usecase.NightlySleepCycle
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, secretSvc *usecase.SecretService, broadcaster *Broadcaster) *Handler {
+func NewHandler(params HandlerParams) *Handler {
 	return &Handler{
-		morphicLoop:   morphicLoop,
-		toolRepo:      toolRepo,
-		workspaceRepo: workspaceRepo,
-		vfsRepo:       vfsRepo,
-		secretSvc:     secretSvc,
-		broadcaster:   broadcaster,
+		morphicLoop:   params.MorphicLoop,
+		toolRepo:      params.ToolRepo,
+		workspaceRepo: params.WorkspaceRepo,
+		vfsRepo:       params.VFSRepo,
+		secretSvc:     params.SecretSvc,
+		broadcaster:   params.Broadcaster,
+		sleepCycle:    params.SleepCycle,
 	}
 }
 
@@ -250,6 +263,10 @@ func (h *Handler) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		SysMem:       m.Sys,
 		NumGC:        m.NumGC,
 		PrunedCount:  0,
+	}
+
+	if h.sleepCycle != nil {
+		metrics.PrunedCount = h.sleepCycle.GetPrunedCount()
 	}
 
 	w.Header().Set("Content-Type", "application/json")

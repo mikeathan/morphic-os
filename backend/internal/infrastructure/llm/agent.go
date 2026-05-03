@@ -26,7 +26,7 @@ func (m *MockAgent) EvaluateTask(ctx context.Context, task string, tools []*doma
 
 	response := usecase.AgentResponse{
 		Action:   "direct_response",
-		Response: "This is a mock response from the LLM agent.",
+		Response: "System Error: No valid LLM provider configured. Please configure an API key for a primary (and optionally fallback) provider in your configuration or environment variables to enable Morphic-OS functionality.",
 	}
 	bytes, _ := json.Marshal(response)
 	return string(bytes), nil
