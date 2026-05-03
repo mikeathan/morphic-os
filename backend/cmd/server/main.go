@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"bufio"
+	"strings"
 
 	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/infrastructure/db"
@@ -13,6 +15,26 @@ import (
 	morphichttp "morphic-os/backend/internal/interface/http"
 	"morphic-os/backend/internal/usecase"
 )
+
+func loadEnvFile() {
+	file, err := os.Open(".env")
+	if err != nil {
+		return // Ignore if not found
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+		}
+	}
+}
 
 func main() {
 	ctx := context.Background()
@@ -56,8 +78,13 @@ func main() {
 	vfsRepo := db.NewSQLiteVirtualFileRepository(toolRepo.GetDB())
 	secretRepo := db.NewSQLiteSecretRepository(toolRepo.GetDB())
 
-	// TODO: Load encryption key securely in production
-	encryptionKey := "this-is-a-super-secret-key-that-must-be-32-bytes"
+	// Load env
+	loadEnvFile()
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		log.Println("WARNING: ENCRYPTION_KEY is not set. Using fallback key for development.")
+		encryptionKey = "this-is-a-super-secret-key-that-must-be-32-bytes"
+	}
 	secretSvc := usecase.NewSecretService(secretRepo, encryptionKey)
 
 	// 4. Initialize UseCase (Morphic Loop)
