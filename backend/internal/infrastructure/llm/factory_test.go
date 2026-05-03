@@ -43,12 +43,12 @@ func TestNewAgentFactory(t *testing.T) {
 			},
 		}
 		agent := llm.NewAgentFactory(cfg)
-		if _, ok := agent.(*llm.FallbackAgent); !ok {
-			t.Errorf("expected *FallbackAgent, got %T", agent)
+		if _, ok := agent.(*llm.CloudProviderAgent); !ok {
+			t.Errorf("expected *CloudProviderAgent, got %T", agent)
 		}
 	})
 
-	t.Run("Fallback Only (Primary Fails)", func(t *testing.T) {
+	t.Run("Fallback Only (Primary Fails due to no API Key)", func(t *testing.T) {
 		cfg := &domain.Config{
 			Active:   "openai",
 			Fallback: "gemini",

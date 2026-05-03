@@ -11,30 +11,50 @@ import (
 	"morphic-os/backend/internal/domain"
 )
 
-// CloudProviderAgent implements the usecase.Agent interface for any provider compatible with the OpenAI chat completions API.
-// This includes OpenAI, OpenRouter, Mule Router, Nvidia Build, and Gemini (via OpenAI compatibility layer).
-type CloudProviderAgent struct {
+// providerInfo internal struct for LLM configs.
+type providerInfo struct {
 	apiKey  string
 	baseURL string
 	model   string
 }
 
-// NewCloudProviderAgent creates a new CloudProviderAgent.
-func NewCloudProviderAgent(apiKey, baseURL, model string) *CloudProviderAgent {
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1/chat/completions"
-	} else if !strings.HasSuffix(baseURL, "/chat/completions") {
-		// Ensure it points to the chat completions endpoint
-		baseURL = strings.TrimRight(baseURL, "/") + "/chat/completions"
+// CloudProviderAgent implements the usecase.Agent interface for any provider compatible with the OpenAI chat completions API.
+// This includes OpenAI, OpenRouter, Mule Router, Nvidia Build, and Gemini (via OpenAI compatibility layer).
+// It maintains a list of configurations to automatically fallback sequentially if an API request fails.
+type CloudProviderAgent struct {
+	providers []providerInfo
+}
+
+// NewCloudProviderAgent creates a new CloudProviderAgent from a list of provider configurations.
+func NewCloudProviderAgent(configs ...domain.ProviderConfig) *CloudProviderAgent {
+	var providers []providerInfo
+	for _, cfg := range configs {
+		if cfg.APIKey == "" {
+			continue // skip empty configs
+		}
+
+		baseURL := cfg.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.openai.com/v1/chat/completions"
+		} else if !strings.HasSuffix(baseURL, "/chat/completions") {
+			// Ensure it points to the chat completions endpoint
+			baseURL = strings.TrimRight(baseURL, "/") + "/chat/completions"
+		}
+
+		model := cfg.Model
+		if model == "" {
+			model = "gpt-4o"
+		}
+
+		providers = append(providers, providerInfo{
+			apiKey:  cfg.APIKey,
+			baseURL: baseURL,
+			model:   model,
+		})
 	}
 
-	if model == "" {
-		model = "gpt-4o"
-	}
 	return &CloudProviderAgent{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		model:   model,
+		providers: providers,
 	}
 }
 
@@ -74,62 +94,82 @@ Respond ONLY with a valid JSON object matching this schema:
 }
 
 func (a *CloudProviderAgent) callProvider(ctx context.Context, systemPrompt, userMessage string) (string, error) {
-	reqBody := map[string]interface{}{
-		"model": a.model,
-		"messages": []map[string]string{
-			{"role": "system", "content": systemPrompt},
-			{"role": "user", "content": userMessage},
-		},
-		"response_format": map[string]string{"type": "json_object"},
-		"temperature":     0.2,
+	if len(a.providers) == 0 {
+		return "", fmt.Errorf("no valid providers configured for CloudProviderAgent")
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal openai request: %w", err)
+	var lastErr error
+	for i, provider := range a.providers {
+		reqBody := map[string]interface{}{
+			"model": provider.model,
+			"messages": []map[string]string{
+				{"role": "system", "content": systemPrompt},
+				{"role": "user", "content": userMessage},
+			},
+			"response_format": map[string]string{"type": "json_object"},
+			"temperature":     0.2,
+		}
+
+		jsonBody, err := json.Marshal(reqBody)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to marshal openai request: %w", err)
+			continue
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", provider.baseURL, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			lastErr = fmt.Errorf("failed to create openai request: %w", err)
+			continue
+		}
+
+		req.Header.Set("Authorization", "Bearer "+provider.apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("openai api request failed: %w", err)
+			// Log and try next provider
+			fmt.Printf("[CloudProviderAgent] Provider %d failed: %v. Attempting next fallback.\n", i, lastErr)
+			continue
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("failed to read openai response: %w", err)
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("openai api returned status %d: %s", resp.StatusCode, string(bodyBytes))
+			fmt.Printf("[CloudProviderAgent] Provider %d returned %d: %v. Attempting next fallback.\n", i, resp.StatusCode, lastErr)
+			continue
+		}
+
+		var openaiResp struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+
+		if err := json.Unmarshal(bodyBytes, &openaiResp); err != nil {
+			lastErr = fmt.Errorf("failed to unmarshal openai response: %w", err)
+			continue
+		}
+
+		if len(openaiResp.Choices) == 0 {
+			lastErr = fmt.Errorf("no choices in openai response")
+			continue
+		}
+
+		return openaiResp.Choices[0].Message.Content, nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", a.baseURL, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create openai request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+a.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("openai api request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read openai response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("openai api returned status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	var openaiResp struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(bodyBytes, &openaiResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal openai response: %w", err)
-	}
-
-	if len(openaiResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in openai response")
-	}
-
-	return openaiResp.Choices[0].Message.Content, nil
+	return "", fmt.Errorf("all configured providers failed. last error: %w", lastErr)
 }
 
 // FixTool asks the LLM to fix the tool code based on the compilation/execution error.
