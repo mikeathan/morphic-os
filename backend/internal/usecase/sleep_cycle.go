@@ -2,8 +2,11 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"morphic-os/backend/internal/domain"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -17,12 +20,13 @@ type SleepCycleConfig struct {
 // NightlySleepCycle represents the background daemon responsible for pruning cognitive memory.
 type NightlySleepCycle struct {
 	repo        domain.MemoryRepository
+	agent       Agent
 	config      SleepCycleConfig
 	prunedCount int64 // Atomic counter for pruned vectors
 }
 
 // NewNightlySleepCycle creates a new NightlySleepCycle daemon.
-func NewNightlySleepCycle(repo domain.MemoryRepository, config SleepCycleConfig) *NightlySleepCycle {
+func NewNightlySleepCycle(repo domain.MemoryRepository, agent Agent, config SleepCycleConfig) *NightlySleepCycle {
 	if config.MaxLastRecallDays == 0 {
 		config.MaxLastRecallDays = 30 // default 30 days
 	}
@@ -31,6 +35,7 @@ func NewNightlySleepCycle(repo domain.MemoryRepository, config SleepCycleConfig)
 	}
 	return &NightlySleepCycle{
 		repo:   repo,
+		agent:  agent,
 		config: config,
 	}
 }
@@ -51,6 +56,30 @@ func (n *NightlySleepCycle) Run(ctx context.Context) {
 
 	prunedThisRun := 0
 	for _, v := range vectors {
+		prompt := fmt.Sprintf(`Evaluate this memory: "%s". Is it a critical long-term fact/preference, or is it obsolete/useless data? Respond with a JSON object containing "action": "direct_response" and "response": "KEEP" or "response": "DISCARD".`, v.Content)
+
+		respStr, err := n.agent.EvaluateTask(ctx, prompt, nil)
+
+		var agentResp AgentResponse
+		if err == nil {
+			err = json.Unmarshal([]byte(respStr), &agentResp)
+		}
+
+		if err != nil {
+			log.Printf("[SleepCycle] Agent evaluation failed for vector %s, falling back to normal pruning: %v\n", v.ID, err)
+			// Proceed with normal pruning (DISCARD)
+		} else if strings.Contains(strings.ToUpper(agentResp.Response), "KEEP") {
+			// Update LastRecall to avoid re-evaluating every night immediately
+			v.LastRecall = time.Now()
+			if err := n.repo.Save(ctx, v); err != nil {
+				log.Printf("[SleepCycle] Failed to update kept vector %s: %v\n", v.ID, err)
+			} else {
+				log.Printf("[SleepCycle] Agent elected to KEEP vector %s.\n", v.ID)
+			}
+			continue
+		}
+
+		// DISCARD
 		if err := n.repo.Delete(ctx, v.ID); err != nil {
 			log.Printf("[SleepCycle] Failed to delete vector %s: %v\n", v.ID, err)
 			continue
