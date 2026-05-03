@@ -14,6 +14,7 @@ import (
 	"morphic-os/backend/internal/infrastructure/wasm"
 	morphichttp "morphic-os/backend/internal/interface/http"
 	"morphic-os/backend/internal/usecase"
+	"time"
 )
 
 func loadEnvFile() {
@@ -77,6 +78,7 @@ func main() {
 
 	vfsRepo := db.NewSQLiteVirtualFileRepository(toolRepo.GetDB())
 	secretRepo := db.NewSQLiteSecretRepository(toolRepo.GetDB())
+	memoryRepo := db.NewSQLiteMemoryRepository(toolRepo.GetDB())
 
 	// Load env
 	loadEnvFile()
@@ -91,9 +93,22 @@ func main() {
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
+	// Initialize Nightly Sleep Cycle Daemon
+	sleepCycleConfig := usecase.SleepCycleConfig{
+		MaxLastRecallDays:  30,
+		MaxAccessFrequency: 5,
+	}
+	sleepCycleDaemon := usecase.NewNightlySleepCycle(memoryRepo, sleepCycleConfig)
+
 	// Initialize Scheduler
 	scheduler := usecase.NewScheduler()
 	schedulerCtx, cancelScheduler := context.WithCancel(ctx)
+
+	// Schedule the Sleep Cycle to run every 24 hours
+	if err := scheduler.Schedule("nightly-sleep-cycle", 24*time.Hour, sleepCycleDaemon.Run); err != nil {
+		log.Printf("Failed to schedule nightly sleep cycle: %v", err)
+	}
+
 	scheduler.Start(schedulerCtx)
 	defer func() {
 		cancelScheduler()
@@ -101,7 +116,7 @@ func main() {
 	}()
 
 	// 5. Initialize HTTP Handler and Router
-	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster)
+	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster, sleepCycleDaemon)
 	router := morphichttp.SetupRouter(handler)
 
 	// 6. Start HTTP Server

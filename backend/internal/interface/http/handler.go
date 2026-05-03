@@ -19,10 +19,11 @@ type Handler struct {
 	vfsRepo       domain.VirtualFileRepository
 	secretSvc     *usecase.SecretService
 	broadcaster   *Broadcaster
+	sleepCycle    *usecase.NightlySleepCycle
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, secretSvc *usecase.SecretService, broadcaster *Broadcaster) *Handler {
+func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, secretSvc *usecase.SecretService, broadcaster *Broadcaster, sleepCycle *usecase.NightlySleepCycle) *Handler {
 	return &Handler{
 		morphicLoop:   morphicLoop,
 		toolRepo:      toolRepo,
@@ -30,6 +31,7 @@ func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository
 		vfsRepo:       vfsRepo,
 		secretSvc:     secretSvc,
 		broadcaster:   broadcaster,
+		sleepCycle:    sleepCycle,
 	}
 }
 
@@ -250,6 +252,10 @@ func (h *Handler) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		SysMem:       m.Sys,
 		NumGC:        m.NumGC,
 		PrunedCount:  0,
+	}
+
+	if h.sleepCycle != nil {
+		metrics.PrunedCount = h.sleepCycle.GetPrunedCount()
 	}
 
 	w.Header().Set("Content-Type", "application/json")

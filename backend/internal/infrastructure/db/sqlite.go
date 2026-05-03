@@ -27,7 +27,7 @@ func NewSQLiteToolRepository(dbPath string) (*SQLiteToolRepository, error) {
 	}
 
 	// Auto-migrate the schema
-	if err := db.AutoMigrate(&domain.Workspace{}, &domain.Tool{}, &domain.VirtualFile{}); err != nil {
+	if err := db.AutoMigrate(&domain.Workspace{}, &domain.Tool{}, &domain.VirtualFile{}, &domain.MemoryVector{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
