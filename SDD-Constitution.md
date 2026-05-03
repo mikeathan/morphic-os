@@ -30,7 +30,11 @@ The architecture strictly separates the Kernel (Go), the Registry (SQLite), and 
 - The Go Kernel intercepts network requests, injects the decrypted headers, and proxies the call.
 - **Master Key:** Loaded via a local `.env` file passed into the Docker container environment.
 
-### D. Cognitive Memory & Synaptic Pruning
+### D. Task Scheduler
+- A thread-safe, concurrent background scheduler runs within the Go Kernel.
+- It is responsible for orchestrating background Daemons, such as the Zero-Token Auditor and the Nightly Sleep Cycle, ensuring tasks run reliably at specified intervals.
+
+### E. Cognitive Memory & Synaptic Pruning
 - **Implementation:** Use `sqlite-vss` for vector embeddings.
 - **The Sleep Cycle (Nightly Daemon):**
   1. Consolidates raw VFS chat logs into facts/preferences.

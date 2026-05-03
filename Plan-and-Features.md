@@ -24,7 +24,7 @@
 ## Phase 3: Security, Daemons, & Memory
 **Objective:** Implement AES Secrets vault, Go Task Scheduler, and the Nightly Sleep Cycle.
 - **[Completed]** Implement the AES-256-GCM Secrets vault. Wasm tools never see raw keys; the Go Kernel intercepts and proxies network calls.
-- Implement the Go Task Scheduler for background tasks (e.g., Zero-Token Auditor).
+- **[Completed]** Implement the Go Task Scheduler for background tasks (e.g., Zero-Token Auditor).
 - Implement the Nightly Sleep Cycle (Pruning):
   - Consolidate raw VFS chat logs into facts/preferences.
   - Evaluate existing vectors based on access frequency and time since last recall.
