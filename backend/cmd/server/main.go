@@ -91,6 +91,15 @@ func main() {
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
+	// Initialize Scheduler
+	scheduler := usecase.NewScheduler()
+	schedulerCtx, cancelScheduler := context.WithCancel(ctx)
+	scheduler.Start(schedulerCtx)
+	defer func() {
+		cancelScheduler()
+		scheduler.Stop()
+	}()
+
 	// 5. Initialize HTTP Handler and Router
 	handler := morphichttp.NewHandler(morphicLoop, toolRepo, workspaceRepo, vfsRepo, secretSvc, broadcaster)
 	router := morphichttp.SetupRouter(handler)
