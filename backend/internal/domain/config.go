@@ -20,16 +20,18 @@ type Config struct {
 	DBPath   string                    `json:"db_path" yaml:"db_path"`
 	LLM      map[string]ProviderConfig `json:"llm" yaml:"llm"`
 	Active   string                    `json:"active_llm" yaml:"active_llm"` // The provider to use by default
+	Fallback string                    `json:"fallback_llm,omitempty" yaml:"fallback_llm,omitempty"` // The provider to use if Active fails
 }
 
 // LoadConfig loads the configuration from a JSON file.
 func LoadConfig(path string) (*Config, error) {
 	// Defaults
 	cfg := &Config{
-		Port:   "8080",
-		DBPath: "morphic-os.db",
-		LLM:    make(map[string]ProviderConfig),
-		Active: "mock",
+		Port:     "8080",
+		DBPath:   "morphic-os.db",
+		LLM:      make(map[string]ProviderConfig),
+		Active:   "mock",
+		Fallback: "",
 	}
 
 	data, err := os.ReadFile(path)
@@ -71,5 +73,8 @@ func (c *Config) loadFromEnv() {
 			Model:   os.Getenv("OPENAI_MODEL"),
 		}
 		c.Active = "openai"
+	}
+	if f := os.Getenv("FALLBACK_LLM"); f != "" {
+		c.Fallback = f
 	}
 }
