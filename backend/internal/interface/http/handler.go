@@ -6,6 +6,7 @@ import (
 	"morphic-os/backend/internal/usecase"
 	"net/http"
 	"runtime"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -16,16 +17,18 @@ type Handler struct {
 	toolRepo      domain.ToolRepository
 	workspaceRepo domain.WorkspaceRepository
 	vfsRepo       domain.VirtualFileRepository
+	secretSvc     *usecase.SecretService
 	broadcaster   *Broadcaster
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, broadcaster *Broadcaster) *Handler {
+func NewHandler(morphicLoop *usecase.MorphicLoop, toolRepo domain.ToolRepository, workspaceRepo domain.WorkspaceRepository, vfsRepo domain.VirtualFileRepository, secretSvc *usecase.SecretService, broadcaster *Broadcaster) *Handler {
 	return &Handler{
 		morphicLoop:   morphicLoop,
 		toolRepo:      toolRepo,
 		workspaceRepo: workspaceRepo,
 		vfsRepo:       vfsRepo,
+		secretSvc:     secretSvc,
 		broadcaster:   broadcaster,
 	}
 }
@@ -251,4 +254,61 @@ func (h *Handler) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(metrics)
+}
+
+func (h *Handler) ListSecrets(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.URL.Query().Get("workspace_id")
+	if workspaceID == "" {
+		workspaceID = "default"
+	}
+
+	secrets, err := h.secretSvc.ListSecrets(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(secrets)
+}
+
+func (h *Handler) AddSecret(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		WorkspaceID string `json:"workspace_id"`
+		Key         string `json:"key"`
+		Value       string `json:"value"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if req.WorkspaceID == "" {
+		req.WorkspaceID = "default"
+	}
+
+	secret, err := h.secretSvc.AddSecret(r.Context(), req.WorkspaceID, req.Key, req.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(secret)
+}
+
+func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/api/secrets/")
+	if id == "" {
+		http.Error(w, "Missing secret ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.secretSvc.DeleteSecret(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

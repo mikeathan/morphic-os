@@ -1,4 +1,4 @@
-import { Tool, VirtualFile } from '../types';
+import { Tool, VirtualFile, Secret } from '../types';
 
 export const fetchVirtualFiles = async (workspaceId: string = "default"): Promise<VirtualFile[]> => {
   const res = await fetch(`/api/vfs/files?workspace_id=${workspaceId}`);
@@ -27,18 +27,48 @@ export const fetchTools = async (): Promise<Tool[]> => {
 };
 
 export const submitTask = async (task: string): Promise<string> => {
-  const res = await fetch('/api/task', {
+  const res = await fetch('/api/tasks', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ task }),
   });
-
   if (!res.ok) {
-    throw new Error(`Error: ${res.status} ${res.statusText}`);
+    throw new Error('Failed to submit task');
   }
-
   const data = await res.json();
-  return data.result || 'No result returned.';
+  return data.result;
+};
+
+export const fetchSecrets = async (): Promise<Secret[]> => {
+  const res = await fetch('/api/secrets');
+  if (!res.ok) {
+    throw new Error('Failed to fetch secrets');
+  }
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+};
+
+export const addSecret = async (key: string, value: string): Promise<Secret> => {
+  const res = await fetch('/api/secrets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workspace_id: 'default',
+      key,
+      value,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to create secret');
+  }
+  return await res.json();
+};
+
+export const deleteSecret = async (id: string): Promise<void> => {
+  const res = await fetch(`/api/secrets/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error('Failed to delete secret');
+  }
 };

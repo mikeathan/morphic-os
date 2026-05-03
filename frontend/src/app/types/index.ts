@@ -40,3 +40,11 @@ export interface MetricsData {
   num_gc: number;
   pruned_count: number;
 }
+
+
+export interface Secret {
+  id: string;
+  workspace_id: string;
+  key: string;
+  created_at: string;
+}
