@@ -67,31 +67,7 @@ func main() {
 	}()
 
 	// 3. Initialize LLM Agent Factory (Abstracted for future expansion)
-	primaryAgent, err := llm.NewAgentFactory(cfg.Active, cfg.LLM[cfg.Active])
-	if err != nil {
-		log.Printf("Failed to initialize primary agent '%s': %v.", cfg.Active, err)
-	}
-
-	var fallbackAgent usecase.Agent
-	if cfg.Fallback != "" {
-		var fErr error
-		fallbackAgent, fErr = llm.NewAgentFactory(cfg.Fallback, cfg.LLM[cfg.Fallback])
-		if fErr != nil {
-			log.Printf("Failed to initialize fallback agent '%s': %v.", cfg.Fallback, fErr)
-		}
-	}
-
-	var agent usecase.Agent
-	if primaryAgent != nil && fallbackAgent != nil {
-		agent = llm.NewFallbackAgent(primaryAgent, fallbackAgent)
-	} else if primaryAgent != nil {
-		agent = primaryAgent
-	} else if fallbackAgent != nil {
-		agent = fallbackAgent
-	} else {
-		log.Println("No valid primary or fallback agent configured. Falling back to MockAgent.")
-		agent = llm.NewMockAgent()
-	}
+	agent := llm.NewAgentFactory(cfg)
 
 	// Initialize Broadcaster
 	broadcaster := morphichttp.NewBroadcaster()
