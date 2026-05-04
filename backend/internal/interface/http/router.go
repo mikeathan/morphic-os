@@ -8,9 +8,20 @@ import (
 func SetupRouter(handler *Handler) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/task", handler.HandleTask)
+	mux.HandleFunc("/api/tasks", handler.HandleTask)
 	mux.HandleFunc("/api/tools", handler.HandleGetTools)
 	mux.HandleFunc("/api/logs", handler.HandleLogs)
+
+	mux.HandleFunc("/api/secrets", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handler.ListSecrets(w, r)
+		} else if r.Method == http.MethodPost {
+			handler.AddSecret(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/secrets/", handler.DeleteSecret)
 	mux.HandleFunc("/api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			handler.HandleGetWorkspaces(w, r)
