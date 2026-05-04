@@ -42,9 +42,9 @@
   7. **Registration:** Save successful tools to SQLite and re-inject them into context.
 
 ## Phase 5: The Command Center
-**Objective:** Build the React/Vite/Next.js UI and Go WebSocket APIs.
+**Objective:** Build the React/Vite/Next.js UI and Go SSE APIs.
 - Initialize Next.js/Vite app.
-- Build the Go WebSocket APIs for real-time communication.
+- **[Completed]** Build the Go SSE APIs for real-time communication.
 - Implement the Dashboard features:
   - **[Completed]** **The Morphic Map (React Flow):** Visualizer showing active tools, daemons, and pipes.
   - **[Completed]** **Terminal / stdout:** Live-streaming view.
