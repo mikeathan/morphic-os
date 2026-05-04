@@ -17,12 +17,12 @@ The architecture is designed to support these autonomous scenarios:
 The architecture strictly separates the Kernel (Go), the Registry (SQLite), and the Userspace (Wasm tools).
 
 ### A. Nested Sandboxing (Docker + Wasm)
-- **The Outer Sandbox (Docker):** The Go Kernel and frontend are deployed via `docker-compose`. Uses a multi-stage build: compiling the Go binary in a `golang:alpine` container and running it in an ultra-lightweight `alpine:latest` container.
+- **[Completed] The Outer Sandbox (Docker):** The Go Kernel and frontend are deployed via `docker-compose`. Uses a multi-stage build: compiling the Go binary in a `golang:alpine` container and running it in an ultra-lightweight `alpine:latest` container.
 - **The Inner Sandbox (Wazero):** Forged tools operate strictly inside the `wazero` runtime.
 - **Development vs. Production:** During active IDE development (`MORPHIC_ENV=dev`), the Outer Sandbox is temporarily disabled (running natively via `go run`) to allow for Delve debugger attachment.
 
 ### B. The Unix-Like Virtual File System (VFS)
-- WASI filesystem calls must be intercepted by the Go Kernel and routed to a `VirtualFiles` SQLite table.
+- **[Completed]** WASI filesystem calls must be intercepted by the Go Kernel and routed to a `VirtualFiles` SQLite table.
 - **Structure:** Mimics Unix (`/var/logs` for outputs, `/home/agent` for user data, `/usr/bin` for tool metadata).
 
 ### C. The Secrets Vault (Encrypted Storage)

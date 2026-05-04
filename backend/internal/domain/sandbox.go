@@ -16,6 +16,8 @@ type SandboxConfig struct {
 	EnvVars         map[string]string // Environment variables to inject
 	WorkspaceFSDir  string            // Host directory to mount for file system access
 	TimeoutSeconds  int               // Execution timeout in seconds
+	VFSRepo         VirtualFileRepository
+	WorkspaceID     string
 }
 
 // SandboxManager defines the interface for safely executing dynamically generated code.
