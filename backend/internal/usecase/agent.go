@@ -37,6 +37,7 @@ type AgentResponse struct {
 type MorphicLoop struct {
 	toolRepo      domain.ToolRepository
 	workspaceRepo domain.WorkspaceRepository
+	vfsRepo       domain.VirtualFileRepository
 	agent         Agent
 	sandbox       domain.SandboxManager
 	broadcastLog  func(msg string)
@@ -50,6 +51,11 @@ func NewMorphicLoop(toolRepo domain.ToolRepository, workspaceRepo domain.Workspa
 		agent:         agent,
 		sandbox:       sandbox,
 	}
+}
+
+// SetVFSRepo injects the VFS repo for the sandbox config
+func (l *MorphicLoop) SetVFSRepo(vfsRepo domain.VirtualFileRepository) {
+	l.vfsRepo = vfsRepo
 }
 
 // SetLogBroadcaster sets the function to call when a log event occurs.
@@ -141,6 +147,8 @@ func (l *MorphicLoop) executeTool(ctx context.Context, workspaceID string, task 
 
 	sandboxConfig := domain.SandboxConfig{
 		TimeoutSeconds: 30, // Default timeout
+		VFSRepo:        l.vfsRepo,
+		WorkspaceID:    workspaceID,
 	}
 
 	if l.workspaceRepo != nil && workspaceID != "" && workspaceID != "default" {

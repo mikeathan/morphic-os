@@ -4,8 +4,8 @@
 **Objective:** Establish the core Go backend structure, the SQLite registry, and basic LLM integration within Docker.
 - Initialize Go module in `backend/`.
 - Initialize SQLite/sqlite-vss connection, schemas (`Tools`, `VirtualFiles`, `Secrets`, `KnowledgeBase`).
-- Implement the VFS interface.
-- Set up Docker configurations (multi-stage build with `golang:alpine` and `alpine:latest`).
+- **[Completed]** Implement the VFS interface.
+- **[Completed]** Set up Docker configurations (multi-stage build with `golang:alpine` and `alpine:latest`).
 - **Domain:** Create the `Tool` entity and repository interface (`domain/tool.go`).
 - **Infrastructure:** Implement SQLite repository for storing, retrieving, and updating tools (`infrastructure/db/sqlite.go`). Include auto-migration.
 - **UseCase:** Define the Agent interface for interacting with the LLM (`usecase/agent.go`). Implement basic context assembly.
@@ -19,7 +19,7 @@
   - Compile generated Go code to WebAssembly (`GOOS=wasip1 GOARCH=wasm go build`).
   - Execute the compiled WASM module in an isolated Wazero runtime with strict memory limits and timeouts. Support parsing Wasm execution arguments using `wasip1` to read from `os.Args`.
   - Capture `stdout` and `stderr` to return to the UseCase layer.
-  - Map WASI filesystem calls to the `VirtualFiles` SQLite table via the Go Kernel.
+  - **[Completed]** Map WASI filesystem calls to the `VirtualFiles` SQLite table via the Go Kernel.
 
 ## Phase 3: Security, Daemons, & Memory
 **Objective:** Implement AES Secrets vault, Go Task Scheduler, and the Nightly Sleep Cycle.

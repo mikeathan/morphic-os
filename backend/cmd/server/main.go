@@ -87,6 +87,7 @@ func main() {
 
 	// 4. Initialize UseCase (Morphic Loop)
 	morphicLoop := usecase.NewMorphicLoop(toolRepo, workspaceRepo, agent, sandbox)
+	morphicLoop.SetVFSRepo(vfsRepo)
 	morphicLoop.SetLogBroadcaster(broadcaster.Broadcast)
 
 	// Initialize Nightly Sleep Cycle Daemon

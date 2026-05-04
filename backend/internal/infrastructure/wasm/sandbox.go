@@ -133,7 +133,10 @@ func (sm *WazeroSandboxManager) ExecuteWASM(ctx context.Context, sandboxConfig d
 	}
 
 	// Mount the workspace filesystem if provided
-	if sandboxConfig.WorkspaceFSDir != "" {
+	if sandboxConfig.VFSRepo != nil {
+		vfs := NewWazeroVFS(ctx, sandboxConfig.VFSRepo, sandboxConfig.WorkspaceID)
+		config = config.WithFSConfig(wazero.NewFSConfig().WithFSMount(vfs, "/"))
+	} else if sandboxConfig.WorkspaceFSDir != "" {
 		if err := os.MkdirAll(sandboxConfig.WorkspaceFSDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create workspace directory: %w", err)
 		}
