@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"morphic-os/backend/internal/domain"
+	"morphic-os/backend/internal/usecase/prompts"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -68,7 +69,7 @@ func (n *NightlySleepCycle) Run(ctx context.Context) {
 
 	prunedThisRun := 0
 	for _, v := range vectors {
-		prompt := fmt.Sprintf(`Evaluate this memory: "%s". Is it a critical long-term fact/preference, or is it obsolete/useless data? Respond with a JSON object containing "action": "direct_response" and "response": "KEEP" or "response": "DISCARD".`, v.Content)
+		prompt := fmt.Sprintf(prompts.SleepCycleEvaluateMemory, v.Content)
 
 		respStr, err := n.agent.EvaluateTask(ctx, prompt, nil)
 
@@ -122,10 +123,7 @@ func (n *NightlySleepCycle) consolidateChatLogs(ctx context.Context) {
 
 		log.Printf("[SleepCycle] Consolidating logs for workspace %s\n", workspace.ID)
 
-		prompt := fmt.Sprintf(`Extract all new factual information, user preferences, and system states from this transcript. Output as a JSON array of concise statements. Do not wrap the JSON array in any markdown, just output the JSON string array.
-
-Transcript:
-%s`, string(file.Content))
+		prompt := fmt.Sprintf(prompts.SleepCycleConsolidateLogs, string(file.Content))
 
 		respStr, err := n.agent.EvaluateTask(ctx, prompt, nil)
 		if err != nil {
