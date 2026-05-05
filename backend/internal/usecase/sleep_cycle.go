@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"morphic-os/backend/internal/domain"
+	"morphic-os/backend/internal/usecase/prompts"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // SleepCycleConfig defines the thresholds for pruning memories.
@@ -19,14 +22,16 @@ type SleepCycleConfig struct {
 
 // NightlySleepCycle represents the background daemon responsible for pruning cognitive memory.
 type NightlySleepCycle struct {
-	repo        domain.MemoryRepository
-	agent       Agent
-	config      SleepCycleConfig
-	prunedCount int64 // Atomic counter for pruned vectors
+	repo          domain.MemoryRepository
+	vfsRepo       domain.VirtualFileRepository
+	workspaceRepo domain.WorkspaceRepository
+	agent         Agent
+	config        SleepCycleConfig
+	prunedCount   int64 // Atomic counter for pruned vectors
 }
 
 // NewNightlySleepCycle creates a new NightlySleepCycle daemon.
-func NewNightlySleepCycle(repo domain.MemoryRepository, agent Agent, config SleepCycleConfig) *NightlySleepCycle {
+func NewNightlySleepCycle(repo domain.MemoryRepository, vfsRepo domain.VirtualFileRepository, workspaceRepo domain.WorkspaceRepository, agent Agent, config SleepCycleConfig) *NightlySleepCycle {
 	if config.MaxLastRecallDays == 0 {
 		config.MaxLastRecallDays = 30 // default 30 days
 	}
@@ -34,9 +39,11 @@ func NewNightlySleepCycle(repo domain.MemoryRepository, agent Agent, config Slee
 		config.MaxAccessFrequency = 5 // default 5 accesses
 	}
 	return &NightlySleepCycle{
-		repo:   repo,
-		agent:  agent,
-		config: config,
+		repo:          repo,
+		vfsRepo:       vfsRepo,
+		workspaceRepo: workspaceRepo,
+		agent:         agent,
+		config:        config,
 	}
 }
 
@@ -44,6 +51,12 @@ func NewNightlySleepCycle(repo domain.MemoryRepository, agent Agent, config Slee
 func (n *NightlySleepCycle) Run(ctx context.Context) {
 	log.Println("[SleepCycle] Starting Nightly Sleep Cycle...")
 
+	// 1. Consolidate raw VFS chat logs into facts/preferences
+	if n.workspaceRepo != nil && n.vfsRepo != nil {
+		n.consolidateChatLogs(ctx)
+	}
+
+	// 2. Prune old vectors
 	maxLastRecallTime := time.Now().AddDate(0, 0, -n.config.MaxLastRecallDays)
 
 	vectors, err := n.repo.GetPrunableVectors(ctx, maxLastRecallTime, n.config.MaxAccessFrequency)
@@ -56,7 +69,7 @@ func (n *NightlySleepCycle) Run(ctx context.Context) {
 
 	prunedThisRun := 0
 	for _, v := range vectors {
-		prompt := fmt.Sprintf(`Evaluate this memory: "%s". Is it a critical long-term fact/preference, or is it obsolete/useless data? Respond with a JSON object containing "action": "direct_response" and "response": "KEEP" or "response": "DISCARD".`, v.Content)
+		prompt := fmt.Sprintf(prompts.SleepCycleEvaluateMemory, v.Content)
 
 		respStr, err := n.agent.EvaluateTask(ctx, prompt, nil)
 
@@ -89,6 +102,65 @@ func (n *NightlySleepCycle) Run(ctx context.Context) {
 
 	atomic.AddInt64(&n.prunedCount, int64(prunedThisRun))
 	log.Printf("[SleepCycle] Nightly Sleep Cycle completed. Pruned %d vectors.\n", prunedThisRun)
+}
+
+func (n *NightlySleepCycle) consolidateChatLogs(ctx context.Context) {
+	workspaces, err := n.workspaceRepo.List(ctx)
+	if err != nil {
+		log.Printf("[SleepCycle] Error listing workspaces for log consolidation: %v\n", err)
+		return
+	}
+
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	logFileName := fmt.Sprintf("/var/logs/chat/%s.jsonl", yesterday)
+
+	for _, workspace := range workspaces {
+		file, err := n.vfsRepo.GetByPath(ctx, workspace.ID, logFileName)
+		if err != nil {
+			// Not an error, just no logs for yesterday in this workspace
+			continue
+		}
+
+		log.Printf("[SleepCycle] Consolidating logs for workspace %s\n", workspace.ID)
+
+		prompt := fmt.Sprintf(prompts.SleepCycleConsolidateLogs, string(file.Content))
+
+		respStr, err := n.agent.EvaluateTask(ctx, prompt, nil)
+		if err != nil {
+			log.Printf("[SleepCycle] Agent evaluation failed for consolidation in workspace %s: %v\n", workspace.ID, err)
+			continue
+		}
+
+		var extractedStatements []string
+
+		// If the response is wrapped in AgentResponse structure (due to CloudProviderAgent), try to extract it
+		var agentResp AgentResponse
+		if unmarshalErr := json.Unmarshal([]byte(respStr), &agentResp); unmarshalErr == nil && agentResp.Action == "direct_response" {
+			respStr = agentResp.Response
+		}
+
+		if unmarshalErr := json.Unmarshal([]byte(respStr), &extractedStatements); unmarshalErr == nil {
+			for _, statement := range extractedStatements {
+				newMemory := &domain.MemoryVector{
+					ID:              uuid.New().String(),
+					WorkspaceID:     workspace.ID,
+					Content:         statement,
+					AccessFrequency: 1,
+					LastRecall:      time.Now(),
+					CoreMemory:      false, // Could be determined by agent in future
+				}
+				_ = n.repo.Save(ctx, newMemory)
+			}
+			log.Printf("[SleepCycle] Consolidated %d facts/preferences in workspace %s.\n", len(extractedStatements), workspace.ID)
+		} else {
+			log.Printf("[SleepCycle] Failed to unmarshal extracted statements for workspace %s: %v\n", workspace.ID, unmarshalErr)
+		}
+
+		// Purge raw daily logs
+		if err := n.vfsRepo.Delete(ctx, file.ID); err != nil {
+			log.Printf("[SleepCycle] Failed to delete consolidated log file %s: %v\n", file.ID, err)
+		}
+	}
 }
 
 // GetPrunedCount returns the total number of pruned vectors since startup.
