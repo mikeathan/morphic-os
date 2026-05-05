@@ -80,6 +80,7 @@ func (l *MorphicLoop) logEvent(level, message string) {
 // Execute handles a single user task within a workspace.
 func (l *MorphicLoop) Execute(ctx context.Context, workspaceID string, task string) (string, error) {
 	l.logEvent("INFO", fmt.Sprintf("Received task in workspace %s: %q", workspaceID, task))
+	l.writeToChatLog(ctx, workspaceID, "user", task)
 
 	// 1. Context Assembly: Query SQLite for active tools
 	l.logEvent("EVAL", "Assembling context...")
@@ -116,13 +117,52 @@ func (l *MorphicLoop) Execute(ctx context.Context, workspaceID string, task stri
 	// 3. Execution based on action
 	switch response.Action {
 	case "direct_response":
+		l.writeToChatLog(ctx, workspaceID, "assistant", response.Response)
 		return response.Response, nil
 	case "sys_forge_tool":
-		return l.forgeTool(ctx, workspaceID, task, response, activeTools)
+		res, err := l.forgeTool(ctx, workspaceID, task, response, activeTools)
+		if err == nil && res != "" {
+			l.writeToChatLog(ctx, workspaceID, "assistant", res)
+		}
+		return res, err
 	case "tool_call":
-		return l.executeTool(ctx, workspaceID, task, response)
+		res, err := l.executeTool(ctx, workspaceID, task, response)
+		if err == nil && res != "" {
+			l.writeToChatLog(ctx, workspaceID, "assistant", res)
+		}
+		return res, err
 	default:
 		return "", fmt.Errorf("unknown action type: %s", response.Action)
+	}
+}
+
+func (l *MorphicLoop) writeToChatLog(ctx context.Context, workspaceID, role, content string) {
+	if l.vfsRepo == nil {
+		return
+	}
+	today := time.Now().Format("2006-01-02")
+	path := fmt.Sprintf("/var/logs/chat/%s.jsonl", today)
+
+	entry := map[string]string{
+		"timestamp": time.Now().Format(time.RFC3339),
+		"role":      role,
+		"content":   content,
+	}
+	bytes, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	line := append(bytes, '\n')
+
+	file, err := l.vfsRepo.GetByPath(ctx, workspaceID, path)
+	if err != nil {
+		newFile := &domain.VirtualFile{ID: uuid.New().String(), WorkspaceID: workspaceID, Path: path, Name: filepath.Base(path), IsDir: false, Size: int64(len(line)), Content: line, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		_ = l.vfsRepo.Create(ctx, newFile)
+	} else {
+		file.Content = append(file.Content, line...)
+		file.Size = int64(len(file.Content))
+		file.UpdatedAt = time.Now()
+		_ = l.vfsRepo.Update(ctx, file)
 	}
 }
 
