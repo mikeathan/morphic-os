@@ -62,8 +62,51 @@ func (m *MockMemoryRepository) GetPrunableVectors(ctx context.Context, maxLastRe
 	return prunable, nil
 }
 
+// MockVirtualFileRepository implements domain.VirtualFileRepository
+type MockVirtualFileRepository struct {
+	files map[string]*domain.VirtualFile
+	deleted map[string]bool
+}
+
+func (m *MockVirtualFileRepository) Create(ctx context.Context, file *domain.VirtualFile) error { return nil }
+func (m *MockVirtualFileRepository) GetByID(ctx context.Context, id string) (*domain.VirtualFile, error) { return nil, nil }
+func (m *MockVirtualFileRepository) GetByPath(ctx context.Context, workspaceID string, path string) (*domain.VirtualFile, error) {
+	for _, f := range m.files {
+		if f.WorkspaceID == workspaceID && f.Path == path {
+			return f, nil
+		}
+	}
+	return nil, fmt.Errorf("not found")
+}
+func (m *MockVirtualFileRepository) ListByWorkspace(ctx context.Context, workspaceID string) ([]*domain.VirtualFile, error) { return nil, nil }
+func (m *MockVirtualFileRepository) Update(ctx context.Context, file *domain.VirtualFile) error { return nil }
+func (m *MockVirtualFileRepository) Delete(ctx context.Context, id string) error {
+	m.deleted[id] = true
+	return nil
+}
+
+// MockWorkspaceRepository implements domain.WorkspaceRepository
+type MockWorkspaceRepository struct {
+	workspaces []*domain.Workspace
+}
+
+func (m *MockWorkspaceRepository) Create(ctx context.Context, workspace *domain.Workspace) error { return nil }
+func (m *MockWorkspaceRepository) GetByID(ctx context.Context, id string) (*domain.Workspace, error) { return nil, nil }
+func (m *MockWorkspaceRepository) List(ctx context.Context) ([]*domain.Workspace, error) {
+	return m.workspaces, nil
+}
+func (m *MockWorkspaceRepository) Update(ctx context.Context, workspace *domain.Workspace) error { return nil }
+func (m *MockWorkspaceRepository) Delete(ctx context.Context, id string) error { return nil }
+
 func TestNightlySleepCycle(t *testing.T) {
 	repo := NewMockMemoryRepository()
+	vfsRepo := &MockVirtualFileRepository{
+		files: make(map[string]*domain.VirtualFile),
+		deleted: make(map[string]bool),
+	}
+	workspaceRepo := &MockWorkspaceRepository{
+		workspaces: []*domain.Workspace{{ID: "ws1"}},
+	}
 	ctx := context.Background()
 
 	now := time.Now()
@@ -117,10 +160,23 @@ func TestNightlySleepCycle(t *testing.T) {
 		CoreMemory:      false,
 	})
 
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	vfsRepo.files["f1"] = &domain.VirtualFile{
+		ID: "f1",
+		WorkspaceID: "ws1",
+		Path: fmt.Sprintf("/var/logs/chat/%s.jsonl", yesterday),
+		Content: []byte(`{"timestamp":"2023-01-01T00:00:00Z","role":"user","content":"I like pizza"}
+{"timestamp":"2023-01-01T00:01:00Z","role":"assistant","content":"Noted."}`),
+	}
+
 	agent := llm.NewMockAgent()
 	agent.EvaluateTaskFunc = func(ctx context.Context, task string, tools []*domain.Tool) (string, error) {
 		if strings.Contains(task, "causes agent error") {
 			return "", fmt.Errorf("simulated agent error")
+		}
+
+		if strings.Contains(task, "Extract all new factual information") {
+			return `["User likes pizza", "System responded with Noted."]`, nil
 		}
 
 		resp := usecase.AgentResponse{
@@ -140,7 +196,7 @@ func TestNightlySleepCycle(t *testing.T) {
 		MaxAccessFrequency: 5,
 	}
 
-	daemon := usecase.NewNightlySleepCycle(repo, agent, config)
+	daemon := usecase.NewNightlySleepCycle(repo, vfsRepo, workspaceRepo, agent, config)
 
 	if daemon.GetPrunedCount() != 0 {
 		t.Fatalf("Expected 0 pruned count, got %d", daemon.GetPrunedCount())
@@ -172,6 +228,21 @@ func TestNightlySleepCycle(t *testing.T) {
 	}
 	if _, ok := repo.vectors["v4"]; !ok {
 		t.Errorf("Expected v4 to remain")
+	}
+
+	// Verify log consolidation
+	if !vfsRepo.deleted["f1"] {
+		t.Errorf("Expected VFS file f1 to be deleted")
+	}
+
+	foundPizza := false
+	for _, v := range repo.vectors {
+		if strings.Contains(v.Content, "User likes pizza") {
+			foundPizza = true
+		}
+	}
+	if !foundPizza {
+		t.Errorf("Expected consolidated fact 'User likes pizza' to be in memory repo")
 	}
 
 	// Verify v5 was kept and its LastRecall updated

@@ -95,7 +95,7 @@ func main() {
 		MaxLastRecallDays:  30,
 		MaxAccessFrequency: 5,
 	}
-	sleepCycleDaemon := usecase.NewNightlySleepCycle(memoryRepo, agent, sleepCycleConfig)
+	sleepCycleDaemon := usecase.NewNightlySleepCycle(memoryRepo, vfsRepo, workspaceRepo, agent, sleepCycleConfig)
 
 	// Initialize Scheduler
 	scheduler := usecase.NewScheduler()

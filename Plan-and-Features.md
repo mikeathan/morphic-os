@@ -25,10 +25,10 @@
 **Objective:** Implement AES Secrets vault, Go Task Scheduler, and the Nightly Sleep Cycle.
 - **[Completed]** Implement the AES-256-GCM Secrets vault. Wasm tools never see raw keys; the Go Kernel intercepts and proxies network calls.
 - **[Completed]** Implement the Go Task Scheduler for background tasks (e.g., Zero-Token Auditor).
-- Implement the Nightly Sleep Cycle (Pruning):
-  - Consolidate raw VFS chat logs into facts/preferences.
-  - Evaluate existing vectors based on access frequency and time since last recall.
-  - Purge raw daily logs.
+- **[Completed]** Implement the Nightly Sleep Cycle (Pruning):
+  - **[Completed]** Consolidate raw VFS chat logs into facts/preferences.
+  - **[Completed]** Evaluate existing vectors based on access frequency and time since last recall.
+  - **[Completed]** Purge raw daily logs.
 
 ## Phase 4: The Agentic Loop
 **Objective:** Build the dynamic LLM context builder and self-correction compilation loop.
