@@ -62,6 +62,20 @@ func (m *MockMemoryRepository) GetPrunableVectors(ctx context.Context, maxLastRe
 	return prunable, nil
 }
 
+func (m *MockMemoryRepository) SearchSimilar(ctx context.Context, queryEmbedding []float32, limit int) ([]*domain.MemoryVector, error) {
+	// Simple mock implementation returning an empty list or limited vectors
+	var results []*domain.MemoryVector
+	count := 0
+	for _, v := range m.vectors {
+		if count >= limit {
+			break
+		}
+		results = append(results, v)
+		count++
+	}
+	return results, nil
+}
+
 // MockVirtualFileRepository implements domain.VirtualFileRepository
 type MockVirtualFileRepository struct {
 	files map[string]*domain.VirtualFile
