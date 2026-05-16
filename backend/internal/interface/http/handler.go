@@ -21,6 +21,7 @@ type HandlerParams struct {
 	SecretSvc     *usecase.SecretService
 	Broadcaster   *Broadcaster
 	SleepCycle    *usecase.NightlySleepCycle
+	MemoryRepo    domain.MemoryRepository
 }
 
 type Handler struct {
@@ -31,6 +32,7 @@ type Handler struct {
 	secretSvc     *usecase.SecretService
 	broadcaster   *Broadcaster
 	sleepCycle    *usecase.NightlySleepCycle
+	memoryRepo    domain.MemoryRepository
 }
 
 // NewHandler creates a new Handler.
@@ -43,6 +45,7 @@ func NewHandler(params HandlerParams) *Handler {
 		secretSvc:     params.SecretSvc,
 		broadcaster:   params.Broadcaster,
 		sleepCycle:    params.SleepCycle,
+		memoryRepo:    params.MemoryRepo,
 	}
 }
 
@@ -328,4 +331,32 @@ func (h *Handler) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleGetMemory returns all memory vectors for a workspace.
+func (h *Handler) HandleGetMemory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	workspaceID := r.URL.Query().Get("workspace_id")
+	if workspaceID == "" {
+		workspaceID = "default"
+	}
+
+	if h.memoryRepo == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]domain.MemoryVector{})
+		return
+	}
+
+	memories, err := h.memoryRepo.ListAll(r.Context(), workspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(memories)
 }

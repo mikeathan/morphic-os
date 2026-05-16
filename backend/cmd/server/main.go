@@ -121,6 +121,7 @@ func main() {
 		SecretSvc:     secretSvc,
 		Broadcaster:   broadcaster,
 		SleepCycle:    sleepCycleDaemon,
+		MemoryRepo:    memoryRepo,
 	}
 	handler := morphichttp.NewHandler(handlerParams)
 	router := morphichttp.SetupRouter(handler)

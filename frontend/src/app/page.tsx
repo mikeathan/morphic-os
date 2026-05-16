@@ -7,6 +7,7 @@ import { VFSExplorer } from './components/VFSExplorer';
 import { Terminal } from './components/Terminal';
 import { HardwareMetrics } from './components/HardwareMetrics';
 import { SecretsManager } from './components/SecretsManager';
+import { MemoryManager } from './components/MemoryManager';
 import { TaskSubmissionForm } from './components/TaskSubmissionForm';
 import { TaskDisplay } from './components/TaskDisplay';
 import { useMorphicLoop } from './hooks/useMorphicLoop';
@@ -36,6 +37,7 @@ export default function Home() {
         <div className="lg:col-span-1">
           <ToolRegistry tools={tools} />
           <HardwareMetrics />
+          <MemoryManager />
           <SecretsManager />
           <VFSExplorer />
           <MorphicMap tools={tools} />
