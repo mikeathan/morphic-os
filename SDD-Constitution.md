@@ -17,13 +17,13 @@ The architecture is designed to support these autonomous scenarios:
 The architecture strictly separates the Kernel (Go), the Registry (SQLite), and the Userspace (Wasm tools).
 
 ### A. Nested Sandboxing (Docker + Wasm)
-- **[Completed] The Outer Sandbox (Docker):** The Go Kernel and frontend are deployed via `docker-compose`. Uses a multi-stage build: compiling the Go binary in a `golang:alpine` container and running it in an ultra-lightweight `alpine:latest` container.
+- **[Completed] The Outer Sandbox (Docker):** The Go Kernel and frontend are deployed via `docker-compose`. Uses a multi-stage Debian build: compiling the Go binary in a `golang:1.24-bookworm` container (to support `CGO_ENABLED=1` required by `sqlite-vss`) and running it in `debian:bookworm-slim`.
 - **The Inner Sandbox (Wazero):** Forged tools operate strictly inside the `wazero` runtime.
 - **Development vs. Production:** During active IDE development (`MORPHIC_ENV=dev`), the Outer Sandbox is temporarily disabled (running natively via `go run`) to allow for Delve debugger attachment.
 
 ### B. The Unix-Like Virtual File System (VFS)
 - **[Completed]** WASI filesystem calls must be intercepted by the Go Kernel and routed to a `VirtualFiles` SQLite table.
-- **Structure:** Mimics Unix (`/var/logs` for outputs, `/home/agent` for user data, `/usr/bin` for tool metadata).
+- **Structure:** Mimics Unix (`/var/logs` for outputs, `/home/agent` for user data, `/usr/bin` for tool metadata). Specifically, chat histories are appended to `/var/logs/chat/YYYY-MM-DD.jsonl`.
 
 ### C. The Secrets Vault (Encrypted Storage)
 - **Encryption:** AES-256-GCM. API keys are stored in a `Secrets` SQLite table. Wasm tools never see the raw keys.
@@ -46,6 +46,15 @@ The architecture strictly separates the Kernel (Go), the Registry (SQLite), and 
 - **Ring 1:** Trusted Daemons (Access to specific VFS paths and network).
 - **Ring 3:** Untrusted/New Wasm Tools (Compute only).
 - **IPC (Event Bus):** Tools communicate via a Go-managed pub/sub channel.
+  - **Payload Structure:**
+    ```json
+    {
+      "_ipc_event": "topic_name",
+      "source_tool": "tool_id_or_name",
+      "target_tool": "target_tool_id_or_name",
+      "data": { "key": "value" }
+    }
+    ```
 
 ## 4. UI / UX Dashboard Specifications
 The Vite/React/Next.js frontend must include:
