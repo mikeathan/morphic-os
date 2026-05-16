@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"morphic-os/backend/internal/domain"
+	"morphic-os/backend/internal/usecase"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,17 +13,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
 )
 
 // WazeroSandboxManager implements the domain.SandboxManager interface using wazero.
 type WazeroSandboxManager struct {
-	runtime wazero.Runtime
+	runtime  wazero.Runtime
+	eventBus usecase.EventBus
 }
 
 // NewWazeroSandboxManager creates a new SandboxManager powered by Wazero.
-func NewWazeroSandboxManager(ctx context.Context) *WazeroSandboxManager {
+func NewWazeroSandboxManager(ctx context.Context, eventBus usecase.EventBus) *WazeroSandboxManager {
 	// Apply resource limits: Max memory set to something safe.
 	// Note: Go programs compiled to wasip1 require at least 16-32MB just for the runtime.
 	// 512 pages = 32MB. Let's use 1024 pages (64MB) to be safe for our sandbox.
@@ -31,8 +34,48 @@ func NewWazeroSandboxManager(ctx context.Context) *WazeroSandboxManager {
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
+	// Export publish_event host function to the Wasm guest
+	_, err := r.NewHostModuleBuilder("env").
+		NewFunctionBuilder().
+		WithFunc(func(ctx context.Context, m api.Module, topicPtr, topicLen, payloadPtr, payloadLen uint32) {
+			if eventBus == nil {
+				return
+			}
+
+			// Read topic
+			topicBytes, ok := m.Memory().Read(topicPtr, topicLen)
+			if !ok {
+				// Failed to read memory, return or handle
+				return
+			}
+			topic := string(topicBytes)
+
+			// Read payload
+			payloadBytes, ok := m.Memory().Read(payloadPtr, payloadLen)
+			if !ok {
+				// Failed to read memory
+				return
+			}
+
+			// Call eventBus.Publish
+			// We pass a copy of the payload since Wasm memory might change
+			payloadCopy := make([]byte, len(payloadBytes))
+			copy(payloadCopy, payloadBytes)
+			eventBus.Publish(topic, payloadCopy)
+		}).
+		Export("publish_event").
+		Instantiate(ctx)
+
+	if err != nil {
+		// Log or handle the instantiation error in a real app,
+		// but since the original didn't return an error we will panic here if it fails
+		// as it is an initialization error.
+		panic(fmt.Errorf("failed to instantiate env module: %w", err))
+	}
+
 	return &WazeroSandboxManager{
-		runtime: r,
+		runtime:  r,
+		eventBus: eventBus,
 	}
 }
 
