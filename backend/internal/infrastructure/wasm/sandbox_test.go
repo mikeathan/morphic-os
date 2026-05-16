@@ -4,6 +4,7 @@ import (
 	"context"
 	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/infrastructure/wasm"
+	"morphic-os/backend/internal/usecase"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,7 +20,8 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 		t.Fatalf("failed to read test wasm file: %v. Did you run 'GOOS=wasip1 GOARCH=wasm go build -o hello.wasm main.go' in testdata/hello?", err)
 	}
 
-	sm := wasm.NewWazeroSandboxManager(ctx)
+	eventBus := usecase.NewMemoryEventBus()
+	sm := wasm.NewWazeroSandboxManager(ctx, eventBus)
 	defer sm.Close(ctx)
 
 	t.Run("Execute without args", func(t *testing.T) {
@@ -69,7 +71,8 @@ func TestWazeroSandboxManager_ExecuteWASM(t *testing.T) {
 
 func TestWazeroSandboxManager_CompileToWASM(t *testing.T) {
 	ctx := context.Background()
-	sm := wasm.NewWazeroSandboxManager(ctx)
+	eventBus := usecase.NewMemoryEventBus()
+	sm := wasm.NewWazeroSandboxManager(ctx, eventBus)
 	defer sm.Close(ctx)
 
 	t.Run("Compile valid Go code", func(t *testing.T) {

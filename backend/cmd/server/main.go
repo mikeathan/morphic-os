@@ -59,7 +59,8 @@ func main() {
 	workspaceRepo := db.NewSQLiteWorkspaceRepository(toolRepo.GetDB())
 
 	// 2. Initialize Sandbox
-	sandbox := wasm.NewWazeroSandboxManager(ctx)
+	eventBus := usecase.NewMemoryEventBus()
+	sandbox := wasm.NewWazeroSandboxManager(ctx, eventBus)
 	defer func() {
 		if err := sandbox.Close(ctx); err != nil {
 			log.Printf("Failed to close sandbox: %v", err)

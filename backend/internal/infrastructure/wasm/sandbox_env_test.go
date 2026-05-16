@@ -4,12 +4,14 @@ import (
 	"context"
 	"morphic-os/backend/internal/domain"
 	"morphic-os/backend/internal/infrastructure/wasm"
+	"morphic-os/backend/internal/usecase"
 	"testing"
 )
 
 func TestWazeroSandboxManager_ExecuteWASM_EnvVars(t *testing.T) {
 	ctx := context.Background()
-	sm := wasm.NewWazeroSandboxManager(ctx)
+	eventBus := usecase.NewMemoryEventBus()
+	sm := wasm.NewWazeroSandboxManager(ctx, eventBus)
 	defer sm.Close(ctx)
 
 	// A simple Go program that prints the value of "MY_ENV_VAR"
